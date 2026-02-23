@@ -4,6 +4,8 @@
 **Prerequisites:** Complete [Tutorial 1](TUTORIAL_1_mammalian_SGs.md) first.
 **What you'll learn:** Nucleolar segmentation, colocalization, spatial proximity, nucleolar morphology, multi-condition plotting.
 
+> **Using the example data subset?** The repository ships 2 cropped images (25°C and 40°C only) for quick testing. This tutorial describes the full dataset (6 temperatures, 1 replicate each), but all commands work identically on the subset — you'll just see fewer conditions in the output and the trend lines won't be as informative with only 2 points. The cropped images also have fewer cells (~20–50 vs ~200–600 per image) and run much faster (~2 minutes total vs ~25 minutes).
+
 ## The biology
 
 Budding yeast expressing three fluorescent markers are imaged across a temperature gradient from 25°C (permissive) to 40°C (severe heat stress):
@@ -85,10 +87,7 @@ python cellquant.py example_data/yeast_temperature/ \
   --filename-pattern "MAX_{condition}_rep{replicate}"
 ```
 
-This will take longer than Tutorial 1 (~25 minutes on CPU) because:
-- Yeast images are processed at full resolution (no downsampling)
-- More cells per image (~200–600 vs ~10–15)
-- Additional analyses (colocalization, proximity, morphology)
+With the full dataset, this takes ~25 minutes on CPU because yeast images are processed at full resolution (no downsampling), there are more cells per image (~200–600 vs ~10–15 for mammalian), and the additional analyses (colocalization, proximity, morphology) add computation. The 2-image subset finishes in ~2 minutes.
 
 You'll see a warning on Apple Silicon Macs:
 ```
@@ -162,12 +161,12 @@ One row per cell, describing the largest nucleolus in that cell.
 
 ## Step 6: Interpret multi-condition plots
 
-With 6 temperatures, the pipeline generates strip plots instead of violins:
+With 3 or more conditions, the pipeline generates strip plots instead of violins:
 - Each dot is one cell
 - Large diamonds are per-image medians (one per temperature, since n=1 replicate)
 - Dashed line shows the trend through condition medians (because you used `--trend`)
 
-**No p-values are shown.** With one replicate per condition, there is no meaningful statistical test. The data are presented descriptively. This is honest — the temperature series shows trends, not statistically confirmed differences.
+**No p-values are shown.** With one replicate per condition, there is no meaningful statistical test. The data are presented descriptively. This is honest — the temperature series shows trends, not statistically confirmed differences. (If you're running the 2-image subset, you'll see the same: strip plots with 2 points and a trend line connecting them.)
 
 **What to look for in the plots:**
 - Sis1 puncta count increasing at ≥36°C

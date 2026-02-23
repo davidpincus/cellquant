@@ -8,7 +8,30 @@ Get results in 5 minutes. For detailed explanations, see the [full tutorials](TU
 conda activate cellquant    # or set up env first: see INSTALL.md
 ```
 
-## Option 1: Mammalian cells with nuclear stain
+## Try the included example data
+
+The repository ships a small subset of each dataset (2 images per dataset, cropped to 400×400 pixels) for quick testing. Run this to verify everything works:
+
+```bash
+python cellquant.py example_data/mammalian_SGs/ \
+  "1:DAPI:nucleus" "2:G3BP1:quantify" "3:PABPC1:quantify" \
+  --cell-type mammalian \
+  --out example_data/mammalian_SGs/test_output/ \
+  --filename-pattern "MAX_{condition}_rep{replicate}"
+```
+
+This should finish in 1–2 minutes. Check the results:
+
+```bash
+open example_data/mammalian_SGs/test_output/qc/      # Mac
+# or navigate to the qc/ folder in your file browser
+```
+
+If you see images with cyan cell outlines and yellow nuclear outlines, it's working.
+
+## Use it on your own data
+
+### Option 1: Mammalian cells with nuclear stain
 
 ```bash
 python cellquant.py /path/to/images/ \
@@ -18,7 +41,7 @@ python cellquant.py /path/to/images/ \
   --filename-pattern "MAX_{condition}_rep{replicate}"
 ```
 
-## Option 2: Yeast cells
+### Option 2: Yeast cells
 
 ```bash
 python cellquant.py /path/to/images/ \
@@ -28,7 +51,7 @@ python cellquant.py /path/to/images/ \
   --filename-pattern "{condition}_{replicate}"
 ```
 
-## Option 3: Yeast with nucleolar analysis
+### Option 3: Yeast with nucleolar analysis
 
 ```bash
 python cellquant.py /path/to/images/ \

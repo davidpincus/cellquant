@@ -3,6 +3,8 @@
 **Time:** ~30 minutes (plus ~5 minutes pipeline runtime)
 **What you'll learn:** How to run `cellquant`, interpret QC overlays, and understand the output files.
 
+> **Using the example data subset?** The repository ships 2 cropped images (1 control, 1 arsenite) for quick testing. This tutorial describes the full dataset (9 images, 4–5 replicates per condition), but all commands work identically on the subset — you'll just see fewer cells and conditions in the output, and no p-values will appear (the statistical test requires ≥3 replicates per condition).
+
 ## The biology
 
 U2OS cells were treated with 500 μM sodium arsenite to induce stress granules — cytoplasmic condensates of RNA and RNA-binding proteins that form under stress. The images have three channels:
@@ -24,7 +26,7 @@ python cellquant.py --help
 
 ## Step 1: Organize your images
 
-Your images should be in a single folder with a consistent naming pattern. The example data looks like this:
+Your images should be in a single folder with a consistent naming pattern. The full example dataset looks like this:
 
 ```
 mammalian_SGs/
@@ -38,6 +40,8 @@ mammalian_SGs/
 ├── MAX_arsenite_rep4.tif
 └── MAX_arsenite_rep5.tif
 ```
+
+(The repository subset includes only `MAX_control_rep1.tif` and `MAX_arsenite_rep1.tif`.)
 
 Key points:
 - All files are multi-channel TIFF maximum intensity projections (MIPs)
@@ -119,7 +123,9 @@ Cell seg channel: DAPI
   ...
 ```
 
-**How long will it take?** About 1–5 minutes per image on CPU, depending on your computer and image size. On a GPU, ~10–30 seconds per image.
+(If you're using the 2-image subset, you'll see "Found 2 images" instead.)
+
+**How long will it take?** About 1–5 minutes per image on CPU, depending on your computer and image size. On a GPU, ~10–30 seconds per image. The cropped subset images are faster (~1 minute total).
 
 ## Step 5: Check the QC overlays
 
@@ -196,7 +202,9 @@ The superplot shows:
 - **Large black diamonds:** Replicate medians (each diamond = the median of all cells from one image)
 - **Horizontal line:** Overall median per condition
 
-**About the p-values:** The statistical test (Wilcoxon rank-sum) is performed on the replicate medians (the black diamonds), NOT on the individual cells. This is statistically correct — cells from the same image are not independent observations.
+**About the p-values:** When both conditions have ≥3 biological replicates, the pipeline computes a Wilcoxon rank-sum test on the replicate medians (the black diamonds), NOT on the individual cells. This is statistically correct — cells from the same image are not independent observations. The p-value is shown as a bracket above the two conditions.
+
+If either condition has fewer than 3 replicates, no p-value is shown. The data are presented descriptively, and that's the honest thing to do.
 
 With 4–5 biological replicates, you may see p-values of 0.05–0.15 even for visually obvious effects. This is expected. It does not mean the effect isn't real — it means you need more biological replicates to reach conventional statistical significance. The per-cell data clearly show the effect; the replicate-level test honestly reports that the sample size is small.
 
