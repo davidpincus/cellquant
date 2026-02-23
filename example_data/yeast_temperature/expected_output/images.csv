@@ -1,0 +1,3 @@
+image,condition,replicate,n_cells,n_keep,median_Sis1_puncta_n,median_Sis1_frac_intensity_in_puncta,median_Tif6_puncta_n,median_Tif6_frac_intensity_in_puncta
+MAX_25deg_rep1.tif,25deg,1,56,56,0.0,0.0,0.0,0.0
+MAX_40deg_rep1.tif,40deg,1,31,31,1.0,0.002696736398603323,0.0,0.0

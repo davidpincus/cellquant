@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.DS_Store
+results_cellquant/
+*.prism
+~$*
+.pytest_cache/
+
+# Source data directories (not part of repo)
+Abani_SG_MIPs/
+Asif_Sis1_Nsr1_Tif6_temps/
+AVCGTIA_manuscript/
+*.log
+*.docx
+*.ai

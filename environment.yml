@@ -1,0 +1,17 @@
+name: cellquant
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python >=3.11
+  - numpy
+  - pandas
+  - scipy
+  - matplotlib
+  - scikit-image >=0.22
+  - pyyaml
+  - tifffile
+  - pip
+  - pip:
+    - cellpose >=4.0
+    - pytest
