@@ -185,8 +185,8 @@ Requires the named channel to have role `nucleolus`. Puncta are measured in all 
 ```
 
 The pipeline automatically selects plot type based on number of conditions:
-- ≤2 conditions: Violin superplots with per-replicate jitter
-- 3+ conditions: Jittered strip plots with per-image median diamonds
+- ≤2 conditions: Violin superplots with replicate-level Wilcoxon rank-sum p-value (shown when both conditions have ≥3 replicates)
+- 3+ conditions: Jittered strip plots with per-image median diamonds (descriptive only, no statistical test)
 
 ## Masks and QC
 

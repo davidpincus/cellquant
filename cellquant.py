@@ -41,6 +41,7 @@ import matplotlib.pyplot as plt
 import yaml
 
 from scipy.ndimage import distance_transform_edt
+from scipy.stats import mannwhitneyu
 from skimage import filters, measure, morphology, segmentation
 from skimage.transform import resize
 from cellpose import models
@@ -1493,6 +1494,30 @@ def _superplot_violin_2(
             s=140, marker="D", linewidths=1.2,
             edgecolors="black", facecolors="none", zorder=5,
         )
+
+    # Wilcoxon rank-sum on replicate medians (≥3 per condition required)
+    if len(condition_order) == 2:
+        meds_a = rep_meds.loc[
+            rep_meds["condition"] == condition_order[0], "rep_median"
+        ].dropna().values
+        meds_b = rep_meds.loc[
+            rep_meds["condition"] == condition_order[1], "rep_median"
+        ].dropna().values
+        if len(meds_a) >= 3 and len(meds_b) >= 3:
+            _, pval = mannwhitneyu(meds_a, meds_b, alternative="two-sided")
+            p_text = f"p < 0.001" if pval < 0.001 else f"p = {pval:.2g}"
+            # Bracket annotation
+            ax = plt.gca()
+            all_vals = np.concatenate(vals_by_cond)
+            y_max = float(np.nanmax(all_vals))
+            y_range = float(np.nanmax(all_vals) - np.nanmin(all_vals))
+            bar_y = y_max + 0.06 * y_range
+            tip_len = 0.02 * y_range
+            ax.plot([0, 0, 1, 1],
+                    [bar_y - tip_len, bar_y, bar_y, bar_y - tip_len],
+                    color="black", linewidth=1.0)
+            ax.text(0.5, bar_y + 0.01 * y_range, p_text,
+                    ha="center", va="bottom", fontsize=9)
 
     display_labels = [c.capitalize() for c in condition_order]
     plt.xticks(range(len(condition_order)), display_labels)
