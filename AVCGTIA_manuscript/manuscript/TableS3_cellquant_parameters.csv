@@ -1,0 +1,25 @@
+Parameter,U2OS mammalian analysis,Yeast temperature analysis
+Channels,"1:DAPI:nucleus, 2:PABPC1:quantify, 3:G3BP1:quantify","1:Tif6:quantify, 2:Nsr1:nucleolus, 3:Sis1:quantify"
+Cell type preset,mammalian,yeast
+Cellpose model,cpsam,cpsam
+Segmentation downsample,3x,1x (none)
+Cell diameter (px),auto (preset default),40
+Cell segmentation channel,PABPC1 (brightest),composite (sum of all)
+Cell area filter,default (no explicit filter),"200–5000 px"
+Cellprob threshold,0.0,-1.0
+Flow threshold,0.4,0.4
+Puncta channels,"G3BP1, PABPC1","Sis1, Tif6"
+Puncta compartment,cytosol (cell minus nucleus),whole-cell
+LoG sigma,2.0,1.5
+Puncta min area (px),6,3
+Puncta max area (px),10000,300
+Puncta threshold method,Otsu,Otsu
+Puncta circularity filter,>=0.4,>=0.4
+Puncta solidity filter,>=0.7,>=0.7
+Nuclear requirements,1–4 nuclei per cell,none (keep_min_nuclei=0)
+Nucleus dilation (px),3,0
+Colocalization,no,yes (whole-cell)
+Nucleolar proximity,no,"yes (Nsr1, threshold=5 px)"
+Filename pattern,MAX_{condition}_rep{replicate},MAX_{condition}_rep{replicate}
+Plot style,superplot (discrete conditions),trend (ordered conditions)
+GPU,no (CPU),yes

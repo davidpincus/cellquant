@@ -1,0 +1,106 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{mathpazo}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{caption}
+\captionsetup{font={small,singlespacing},labelfont=bf}
+\usepackage{setspace}
+\usepackage{longtable}
+\usepackage{textcomp}
+\onehalfspacing
+
+\begin{document}
+
+\section*{Supplemental Tables}
+
+% ---- Table S1 ----
+\begin{table}[htb]
+\centering
+\caption{\textbf{U2OS stress granule summary statistics.} Per-replicate median values were computed for each metric, then averaged across replicates within each condition. $P$-values are from two-sided Wilcoxon rank-sum tests on replicate-level medians (control: $n=3$ replicates; arsenite: $n=4$ replicates).}
+\label{tab:S1}
+\begin{tabular}{lcccc}
+\toprule
+Metric & Control mean & Arsenite mean & $P$-value \\
+\midrule
+G3BP1 puncta per cell     & 1.83 & 2.50 & 0.59 \\
+G3BP1 fraction condensed  & 0.0008 & 0.0059 & 0.11 \\
+G3BP1 condensate index    & 1.52 & 1.53 & 0.86 \\
+PABPC1 puncta per cell    & 1.33 & 2.50 & 0.36 \\
+PABPC1 fraction condensed & 0.0005 & 0.0022 & 0.057 \\
+PABPC1 condensate index   & 1.44 & 1.48 & 0.11 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ---- Table S2 ----
+\begin{table}[htb]
+\centering
+\caption{\textbf{Yeast temperature series summary.} Per-condition means of key metrics computed across all cells at each temperature. Single replicate per condition; values are descriptive.}
+\label{tab:S2}
+\small
+\begin{tabular}{lccccc}
+\toprule
+Metric & 25\textdegree C & 30\textdegree C & 32\textdegree C & 36\textdegree C & 40\textdegree C \\
+\midrule
+$n$ cells & 580 & 266 & 183 & 501 & 164 \\
+\addlinespace
+\multicolumn{6}{l}{\textit{Condensate metrics}} \\
+Sis1 condensate index     & 1.68 & 1.61 & 1.71 & 1.88 & 1.67 \\
+Sis1 fraction condensed   & 0.012 & 0.023 & 0.018 & 0.006 & 0.017 \\
+Sis1 puncta/cell          & 0.41 & 0.82 & 1.19 & 0.20 & 0.80 \\
+Tif6 condensate index     & 1.85 & 1.95 & 1.89 & 1.87 & 1.70 \\
+Tif6 fraction condensed   & 0.010 & 0.018 & 0.034 & 0.004 & 0.028 \\
+Tif6 puncta/cell          & 0.28 & 0.39 & 1.39 & 0.08 & 2.58 \\
+\addlinespace
+\multicolumn{6}{l}{\textit{Colocalization}} \\
+Pearson $R$ (Tif6 vs Sis1) & 0.87 & 0.85 & 0.84 & 0.79 & 0.71 \\
+Pearson $R$ (Tif6 vs Nsr1) & 0.84 & 0.83 & 0.82 & 0.72 & 0.54 \\
+Pearson $R$ (Sis1 vs Nsr1) & 0.77 & 0.74 & 0.73 & 0.76 & 0.59 \\
+Manders M1 (Tif6 vs Sis1) & 1.00 & 0.79 & 1.00 & 0.99 & 0.66 \\
+Manders M1 (Tif6 vs Nsr1) & 0.85 & 0.85 & 0.78 & 0.86 & 0.49 \\
+Manders M1 (Sis1 vs Nsr1) & 0.82 & 0.81 & 0.79 & 0.86 & 0.68 \\
+\addlinespace
+\multicolumn{6}{l}{\textit{Nucleolar proximity}} \\
+Sis1 fraction proximal    & 0.41 & 0.44 & 0.23 & 0.96 & 0.71 \\
+Sis1 mean distance (px)   & 8.32 & 8.55 & 10.82 & 1.06 & 4.54 \\
+Tif6 fraction proximal    & 0.56 & 0.59 & 0.30 & 0.85 & 0.35 \\
+Tif6 mean distance (px)   & 6.28 & 6.91 & 10.31 & 1.69 & 9.94 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ---- Table S3 ----
+\begin{table}[htb]
+\centering
+\caption{\textbf{\texttt{cellquant} parameters.} Complete parameter settings used for the U2OS mammalian and yeast temperature series analyses. Parameters not listed used default values.}
+\label{tab:S3}
+\small
+\begin{tabular}{lll}
+\toprule
+Parameter & U2OS analysis & Yeast analysis \\
+\midrule
+Cell type preset & mammalian & yeast \\
+Cellpose model & cpsam & cpsam \\
+Seg.\ downsample & 3$\times$ & 1$\times$ (none) \\
+Cell diameter (px) & auto & 40 \\
+Seg.\ channel & PABPC1 & composite \\
+Cell area filter & default & 200--5{,}000 px \\
+Cellprob threshold & 0.0 & $-$1.0 \\
+Puncta channels & G3BP1, PABPC1 & Sis1, Tif6 \\
+Puncta compartment & cytosol & whole-cell \\
+LoG sigma & 2.0 & 1.5 \\
+Puncta min area (px) & 6 & 3 \\
+Puncta max area (px) & 10{,}000 & 300 \\
+Threshold method & Otsu & Otsu \\
+Nuclear req. & 1--4 nuclei & none \\
+Nucleus dilation (px) & 3 & 0 \\
+Colocalization & no & yes (whole-cell) \\
+Nucleolar proximity & no & yes (Nsr1, 5 px) \\
+Plot style & superplot & trend \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{document}

@@ -1,0 +1,7 @@
+Metric,Control mean,Control n_replicates,Arsenite mean,Arsenite n_replicates,p-value (Wilcoxon)
+G3BP1 puncta per cell,1.8333,3,2.5000,4,0.5892
+G3BP1 fraction condensed,0.0008,3,0.0059,4,0.1143
+G3BP1 condensate index,1.5174,3,1.5261,4,0.8571
+PABPC1 puncta per cell,1.3333,3,2.5000,4,0.3590
+PABPC1 fraction condensed,0.0005,3,0.0022,4,0.0571
+PABPC1 condensate index,1.4434,3,1.4829,4,0.1143

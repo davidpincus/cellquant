@@ -1,0 +1,294 @@
+\documentclass[11pt]{article}
+
+% ---- bioRxiv-style preamble ----
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{mathpazo}              % Palatino font (bioRxiv house style)
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{authblk}               % author/affiliation formatting
+\usepackage[hyphens]{url}
+\usepackage[colorlinks=true,linkcolor=blue!60!black,citecolor=blue!60!black,urlcolor=blue!60!black]{hyperref}
+\usepackage{natbib}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{setspace}
+\usepackage{enumitem}
+\usepackage{textcomp}
+\usepackage{caption}
+\captionsetup{font={small,singlespacing},labelfont=bf}
+
+% allow large floats on float pages
+\renewcommand{\floatpagefraction}{0.80}
+\renewcommand{\topfraction}{0.95}
+\renewcommand{\textfraction}{0.05}
+
+% line numbering (bioRxiv recommends)
+\usepackage{lineno}
+\linenumbers
+
+% 1.5 line spacing (bioRxiv style)
+\onehalfspacing
+
+% section formatting
+\usepackage{titlesec}
+\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\itshape}{\thesubsubsection}{1em}{}
+
+% code formatting
+\usepackage{listings}
+\lstset{
+  basicstyle=\small\ttfamily,
+  breaklines=true,
+  frame=single,
+  backgroundcolor=\color{gray!5},
+  rulecolor=\color{gray!30},
+  xleftmargin=2em,
+  framexleftmargin=1.5em,
+  columns=flexible,
+  keepspaces=true,
+  showstringspaces=false,
+}
+
+
+% ---- Document ----
+\begin{document}
+
+% ---- Title block ----
+\begin{flushleft}
+{\LARGE\bfseries A vibecoder's guide to image analysis\par}
+\vspace{12pt}
+
+{\large
+Abani Neferkara\textsuperscript{1},
+Asif Ali\textsuperscript{1},
+David Pincus\textsuperscript{1,2,3,*}\par}
+\vspace{8pt}
+
+{\small
+\textsuperscript{1}Department of Molecular Genetics and Cell Biology,
+The University of Chicago, Chicago, IL 60637, USA\\[4pt]
+\textsuperscript{2}Institute for Biophysical Dynamics,
+The University of Chicago, Chicago, IL 60637, USA\\[4pt]
+\textsuperscript{3}Center for Physics of Evolving Systems,
+The University of Chicago, Chicago, IL 60637, USA\\[4pt]
+\textsuperscript{*}Correspondence: \href{mailto:pincus@uchicago.edu}{pincus@uchicago.edu}\par}
+\end{flushleft}
+
+\vspace{16pt}
+
+% ---- Abstract ----
+\section*{Abstract}
+
+Quantitative fluorescence microscopy is central to modern cell biology, yet extracting reproducible measurements from images remains a bottleneck for biologists without programming experience. Here we present \texttt{cellquant}, a single script command-line pipeline that takes arbitrary fluorescence images of any cell type and performs cell segmentation, colocalization analysis, puncta quantification, and/or spatial proximity measurements. Combined with a comprehensive tutorial, \texttt{cellquant} is configured entirely through human-readable arguments rather than code editing, with AI chatbots bridging the gap between biological expertise and computational analysis. We validate the pipeline on two biological systems: arsenite-induced stress granule formation in human tissue culture cells and temperature-dependent nucleolar reorganization in budding yeast. The pipeline produces publication-ready quantification with statistically rigorous replicate analysis and QC overlays for visual validation. All code, documentation, and example datasets are freely available.
+
+% ---- Introduction ----
+\section*{Introduction}
+
+Fluorescence microscopy provides the visual evidence underlying much of modern cell biology. Advances in segmentation algorithms, particularly deep learning approaches such as Cellpose \citep{stringer2021cellpose, pachitariu2022cellpose2}, have largely solved the technical challenge of identifying individual cells in microscopy images. Similarly, well-established algorithms exist for detecting sub-cellular structures, computing colocalization metrics, and measuring spatial relationships between cellular compartments.
+
+Despite the availability of these algorithms, a persistent gap remains between the existence of computational tools and their routine use by experimental biologists. This gap is primarily architectural rather than technical. Individual algorithms must be assembled into coherent pipelines that handle the full workflow from raw image to statistical summary. This assembly step frequently requires bespoke processing requiring programming, which creates a barrier that excludes a large fraction of the experimental biology community from performing their own quantitative analysis. Several excellent tools address this barrier. CellProfiler \citep{stirling2021cellprofiler4} provides a graphical pipeline builder; Fiji/ImageJ \citep{schindelin2012fiji} offers macro-based automation; napari \citep{sofroniew2022napari} provides interactive visualization with plugin extensibility. However, each requires the user to learn a software-specific workflow, and configuring these tools for novel biological contexts still often demands computational expertise or support from a bioinformatician.
+
+The emergence of large language model (LLM)-based coding assistants (e.g., Claude, ChatGPT, GitHub Copilot) introduces a fundamentally different paradigm. Rather than learning to program, a biologist can describe their analysis in natural language and have an AI assistant generate or configure the necessary code. This approach, colloquially termed ``vibecoding'', is particularly well-suited to image analysis, where the domain expertise of the biologist (recognizing correct segmentation, identifying biologically meaningful structures, evaluating whether results are reasonable) is precisely what is needed to supervise and validate automated pipelines (Figure~\ref{fig:workflow}A).
+
+Among the most demanding areas of modern cell biology for image analysis is the study of biomolecular condensates: membraneless compartments assembled through multivalent interactions among proteins and nucleic acids that form, dissolve, and reorganize in response to environmental conditions \citep{banani2017biomolecular}. Condensate dynamics are regulated by diverse mechanisms including molecular chaperones \citep{bard2024chaperone} and post-translational modifications such as urmylation \citep{cairo2024urm1}. Unlike stable organelles with well-defined morphologies, condensates vary in number, size, and intensity across conditions, require segmentation at multiple spatial scales, and often must be interpreted through spatial relationships between structures rather than simple counts. Stress granules, cytoplasmic ribonucleoprotein assemblies that form when translation initiation is inhibited by diverse stresses \citep{protter2016stress}, exemplify these challenges. Recent work has revealed that transcriptome-wide mRNP condensation is a pervasive response to stress that can occur independently of visible stress granule formation \citep{glauninger2025mrnp}. Stress granule assembly is driven by the RNA-binding protein G3BP1, which functions as a molecular switch triggering liquid-liquid phase separation in response to increased cytoplasmic mRNA concentrations \citep{yang2020g3bp1, guillenboixet2020condensation} and reinforces the integrated stress response translation program \citep{smith2026g3bp}. Stress granules are increasingly recognized as nodes in broader condensate networks that coordinate the cellular stress response, including the heat shock response \citep{pincus2024hsr, dea2024condensate} and the unfolded protein response \citep{pincus2024upr}.
+
+The nucleolus, the site of ribosome biogenesis \citep{shore2021ribosome}, is itself a multilayered condensate that serves as an exquisitely sensitive gauge of cellular stress \citep{boulon2010nucleolus, lafontaine2021nucleolus}. Heat stress causes dramatic nucleolar compaction and reorganization in yeast, reflecting shutdown of rRNA synthesis and redistribution of ribosome biogenesis factors \citep{tadic2019nucleolar}, a process driven in part by the self-interaction of intrinsically disordered regions within small nucleolar RNPs \citep{dominique2024snornp}. During heat shock, orphan ribosomal proteins that can no longer be incorporated into ribosomes accumulate as reversible peri-nucleolar condensates maintained by the Hsp70 co-chaperone Sis1/DnaJB6, establishing a direct mechanistic link between nucleolar biology and the proteostasis network \citep{ali2023adaptive, ali2024preserve}. Additional connections between ribosome assembly and protein quality control have emerged through the finding that K29-linked polyubiquitin chains can disrupt ribosome biogenesis and direct orphan ribosomal proteins to nuclear quality control compartments \citep{garadisuresh2024k29}, highlighting the broader importance of spatial protein quality control in cellular homeostasis \citep{kaganovich2008spatial, sontag2017spatial, sontag2023spatial}. Quantifying stress granule number and composition, nucleolar morphology, protein colocalization, and spatial proximity between condensates and organelles requires a flexible multi-parameter image analysis pipeline.
+
+Here we present \texttt{cellquant}, a single Python script that implements a configurable image analysis pipeline for multi-channel fluorescence microscopy. The design philosophy prioritizes accessibility: all parameters are set through command-line arguments, cell-type presets encode organism-specific defaults, and visual QC overlays enable validation by users without programming knowledge. We pair the pipeline with a comprehensive tutorial that walks users through installation, execution, and interpretation with explicit commands and guidance using AI assistants to customize the analysis.
+
+We validate the pipeline on two complementary biological systems that illustrate its versatility: arsenite-induced stress granule formation from three-channel images (DAPI, G3BP1, PABPC1) in human U2OS cells with biological replicates enabling superplot-style statistical analysis; and temperature-dependent protein condensation and nucleolar reorganization in budding yeast, using three-channel images (Tif6, Nsr1, Sis1) across a 25--40\textdegree C temperature series with colocalization, nucleolar proximity, and morphometric quantification. Together, these examples demonstrate that a biologist who cannot write a line of code can perform publication quality quantitative image analysis.
+
+% ---- Results ----
+\section*{Results}
+
+\subsection*{A single-script pipeline for multi-channel fluorescence image analysis}
+
+The \texttt{cellquant.py} script is a 1,941-line Python script that implements a complete image analysis pipeline from segmentation through statistical visualization (Figure~\ref{fig:workflow}B). The pipeline accepts multi-channel TIFF maximum intensity projections (MIPs) and processes them through a modular series of steps: cell segmentation using Cellpose \citep{pachitariu2022cellpose2}, optional nuclear segmentation, puncta detection via Laplacian-of-Gaussian filtering, per-cell metric computation, and statistical visualization.
+
+The key design decision is that all configuration occurs through command-line arguments rather than code modification. Channel identity and role are specified using a human-readable syntax, where each channel is assigned a position, a name, and a functional role. Cell-type presets (\texttt{-{}-cell-type mammalian}, \texttt{-{}-cell-type yeast}, \texttt{-{}-cell-type bacteria}) provide organism-appropriate defaults for segmentation parameters, including Cellpose model selection, cell diameter, downsampling factor, and area filtering bounds. All preset values can be overridden by explicit command-line arguments, providing flexibility without requiring the user to understand the full parameter space.
+
+\clearpage
+% ---- Figure 1 ----
+\begin{figure}[p]
+\centering
+\includegraphics[width=\textwidth, trim=0 130 0 0, clip]{../AVCGTIA_workflow_schematic.pdf}
+\caption{\textbf{Vibecoder workflow and \texttt{cellquant} pipeline.}
+\textbf{(A)}~The vibecoder workflow. The biologist describes their analysis needs to an AI assistant, which generates the appropriate command-line invocation of \texttt{cellquant.py}. The pipeline produces segmentation, puncta detection, per-cell metrics, and QC overlays that the biologist evaluates visually. If results are incorrect, the biologist describes the problem to the AI, which adjusts parameters. This loop continues until the output matches the biologist's expectations.
+\textbf{(B)}~Schematic of the pipeline architecture. Multi-channel fluorescence MIPs are processed through cell segmentation (Cellpose cpsam), optional nuclear segmentation, puncta detection (Laplacian-of-Gaussian with Otsu thresholding), and per-cell metric computation. Cell-type presets provide organism-specific defaults. Modular analysis modules (colocalization, nucleolar proximity, fraction condensed) are activated by command-line flags. Outputs include per-cell metrics (cells.csv), superplots, QC overlays, and a record of all parameters (config\_used.yml).}
+\label{fig:workflow}
+\end{figure}
+
+\subsection*{Quantification of arsenite induced stress granules in human cells}
+
+To validate the pipeline on a well-characterized biological system, we analyzed three-channel fluorescence images of U2OS cells stably expressing the stress granule nucleator G3BP1-GFP \citep{yang2020g3bp1} and the poly(A)-binding protein PABPC1-mCherry, both canonical stress granule markers, stained with DAPI and treated with or without 500~\textmu M sodium arsenite (Fig.~\ref{fig:mammalian}A). Arsenite triggers eIF2$\alpha$ phosphorylation through the kinase HRI, leading to global translational arrest and the condensation of stalled mRNPs into G3BP1-positive stress granules that recruit additional RNA-binding proteins including PABPC1 \citep{kedersha2016g3bp, protter2016stress}. Images were acquired as maximum intensity projections from z-stacks, with 4--5 biological replicates per condition.
+
+Cell segmentation using Cellpose with $3\times$ downsampling (which acts as spatial regularization for mammalian cell images) produced clean cell and nuclear boundaries validated by QC overlays (Fig.~\ref{fig:mammalian}A, segmentation panels). Puncta were detected independently in the G3BP1 and PABPC1 channels using Laplacian-of-Gaussian filtering within the cytoplasmic compartment (cell mask minus nuclear mask).
+
+Per-cell quantification confirmed the expected arsenite-induced stress granule phenotype: increased puncta number, increased puncta area, and increased fraction of signal in condensed form in both G3BP1 and PABPC1 channels (Fig.~\ref{fig:mammalian}B). Statistical analysis followed a superplot framework \citep{lord2020superplots}, in which per-cell measurements are displayed as individual data points but statistical tests (Wilcoxon rank-sum) operate on replicate-level medians. This approach produces honest $p$-values that reflect the true number of independent observations (biological replicates), rather than inflated significance from pseudoreplication.
+
+Notably, with 4--5 biological replicates, only the PABPC1 fraction condensed metric reached conventional significance ($p = 0.01$), while other metrics showed strong trends ($p = 0.08$--$0.14$) despite visually obvious effects at the single-cell level (Fig.~\ref{fig:mammalian}B). This illustrates a key teaching point: correct statistical treatment of biological replicates often yields modest $p$-values, and this reflects the reality of experimental power rather than a failure of the analysis.
+
+% ---- Figure 2 ----
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=\textwidth, trim=0 85 0 0, clip]{../G3BP1_PABPC1_control_arsenite.pdf}
+\caption{\textbf{Quantification of arsenite-induced stress granules in mammalian cells.}
+\textbf{(A)}~Representative fluorescence images of U2OS cells $\pm$ 500~\textmu M arsenite. Top: individual channels (G3BP1, green; PABPC1, magenta) and merge with DAPI (blue). Bottom: segmentation overlays showing cell boundaries (cyan), nuclear boundaries (yellow), and detected puncta. Scale bar, 10~\textmu m.
+\textbf{(B)}~Quantification of stress granule metrics. From left to right: number of stress granules per cell, stress granule area (pixels), fraction of G3BP1 signal in condensed form, fraction of PABPC1 signal in condensed form. Black filled circles represent replicate medians; gray/colored circles represent individual cells. Lines indicate overall medians. $P$-values from Wilcoxon rank-sum test on replicate medians.}
+\label{fig:mammalian}
+\end{figure}
+
+\subsection*{Multi-parameter analysis of temperature-dependent responses in yeast}
+
+To demonstrate the pipeline's ability to generalize across organisms and analysis types, we analyzed three-channel fluorescence images of budding yeast expressing Tif6-Halo (a late ribosome biogenesis factor involved in 60S subunit maturation and export, labeled with Janelia Fluor 646 HaloTag ligand), Nsr1-mScarlet-I (a dense fibrillar component nucleolar marker and the yeast homolog of mammalian nucleolin), and Sis1-mVenus (an Hsp40 co-chaperone of Hsp70 that relocalizes to peri-nucleolar condensates during heat shock to maintain orphan ribosomal proteins in a soluble, reversible state; \citealt{ali2023adaptive}) at five temperatures from 25\textdegree C to 40\textdegree C (Fig.~\ref{fig:yeast}A).
+
+For yeast segmentation, the pipeline used Cellpose with no downsampling (appropriate given the $\sim$5~\textmu m cell diameter) and composite-channel input (sum of all channels) since no dedicated nuclear stain was available. Area filtering (200--5,000 pixels) removed debris and merged cell clusters. The nucleolus channel role was used for Nsr1, directing the pipeline to generate per-cell nucleolar masks via Otsu thresholding rather than using Nsr1 for nuclear segmentation.
+
+\subsection*{Nucleolar morphology, colocalization, and Sis1 nucleolar proximity across temperatures}
+
+Nucleolar morphometrics (area, solidity, circularity, eccentricity) were computed from the Nsr1-derived nucleolar mask for each cell (Fig.~\ref{fig:yeast}B). Nucleolar circularity increased monotonically with temperature, reflecting the well-characterized transition from crescent-shaped nucleoli in actively growing cells to rounded, compact nucleoli in stressed or growth-arrested cells \citep{tadic2019nucleolar}. Nucleolar area showed a corresponding increase at elevated temperatures, consistent with nucleolar reorganization under stress.
+
+Pairwise colocalization (Pearson's correlation coefficient with Costes automatic thresholding; \citealt{costes2004automatic}) was computed for all three channel pairs across the temperature series (Fig.~\ref{fig:yeast}B). Nsr1--Tif6 colocalization was high at permissive temperatures (both proteins are nucleolar) but decreased at 40\textdegree C, consistent with Tif6 redistribution during ribosome biogenesis shutdown under severe heat stress.
+
+The pipeline computed the distance from each Sis1 spot centroid to the nearest nucleolar boundary (defined by the Nsr1 mask), enabling quantification of whether chaperone condensates form preferentially near the nucleolus (Fig.~\ref{fig:yeast}B). This measurement is motivated by the finding that Sis1-containing condensates harboring orphan ribosomal proteins accumulate at the nucleolar periphery during heat shock \citep{ali2023adaptive}, raising the question of how condensate spatial organization varies across the physiological temperature range. QC overlays color-code puncta as proximal (red, $\leq$5 pixels from nucleolus) or distal (blue), enabling visual validation of the spatial measurements.
+
+\clearpage
+% ---- Figure 3 ----
+\begin{figure}[p]
+\centering
+\includegraphics[width=\textwidth, trim=0 100 0 0, clip]{../Sis1_Nsr1_Tif6_temps.pdf}
+\caption{\textbf{Multi-parameter analysis of temperature-dependent responses in budding yeast.}
+\textbf{(A)}~Top: representative three-channel fluorescence images across the temperature series (25--40\textdegree C). Sis1-mVenus (green), Nsr1-mScarlet-I (blue), Tif6-Halo/JF646 (red). Middle: segmentation overlays with cell boundaries (cyan), nucleolar boundaries (white). Bottom: zoomed panels showing individual cells. Scale bars, 10~\textmu m (overview) and 2~\textmu m (zoom).
+\textbf{(B)}~Quantification of cellular parameters across the temperature series. Top row: cell area, nucleolar area, nucleolar circularity, Sis1 nucleolar proximity (mean distance from Sis1 puncta to nearest nucleolar boundary). Bottom row: Sis1 mean intensity, Nsr1 mean intensity, Tif6 mean intensity, Nsr1--Tif6 colocalization (Pearson's $R$). Individual cells shown as scatter points; lines indicate condition medians.}
+\label{fig:yeast}
+\end{figure}
+
+\subsection*{The vibecoder workflow in practice}
+
+The pipeline was developed iteratively using the AI coding assistant Claude (Anthropic) through a process that exemplifies the vibecoder workflow. The initial mammalian cell pipeline was built in a single session by describing the desired analysis in natural language and refining based on QC overlay evaluation. Extension to yeast required specifying new requirements (nucleolar segmentation, colocalization, spatial proximity) that were translated into a formal specification document, implemented by the AI, and validated through the same visual QC loop.
+
+Several episodes in the development process illustrate both the power and the current limitations of AI-assisted scientific programming. When we upgraded to Cellpose 4, model loading failed because the API changed how it distinguishes built-in from custom model paths, but the AI identified and resolved this across three iterations of error messages and proposed fixes. Separately, the Cellpose Transformer model (cpsam) turned out not to support certain Apple processors, requiring an automatic fallback that was identified empirically and resolved. Perhaps most instructively, $3\times$ downsampling before Cellpose segmentation, initially implemented for speed, produced better segmentation for mammalian cells by suppressing noise but had to be disabled for yeast cells where the smaller cell size made downsampling destructive.
+
+These are not bugs to be hidden. They are the kinds of issues that arise routinely in computational biology, and a vibecoder must be equipped to navigate them by describing the symptoms to an AI assistant and evaluating the proposed fixes.
+
+\subsection*{Installation, tutorial, and documentation}
+
+To access the pipeline, \texttt{cellquant} is distributed as a single Python script alongside an environment specification (\texttt{environment.yml}) and a suite of documentation designed to make the entire workflow navigable without prior programming experience. Installation requires downloading the repository and creating the environment with a single command; on a typical laptop this takes 10--15 minutes, with the Cellpose models constituting the majority of the download. Detailed platform-specific instructions for macOS, Windows, and Linux are provided in \texttt{INSTALL.md}, including explicit commands for users who have never opened a terminal.
+
+The tutorial walks the user from first launch through a complete analysis of the included example datasets, with expected outputs at each step so the user can verify that the pipeline is working correctly before applying it to their own data. Rather than teaching Python, the tutorial teaches a different skill: how to describe an analysis problem to an AI assistant in enough detail to get a working \texttt{cellquant} command. This includes guidance on how to specify channel roles, how to interpret QC overlays, and how to communicate common failure modes (``cells are merging,'' ``puncta are being detected in the nucleus,'' ``the nucleolar mask is too aggressive'') in language that an AI assistant can translate into parameter adjustments.
+
+A complete command line interface (CLI) reference (\texttt{CLI\_REFERENCE.md}) documents every argument with its default value, valid range, and interaction with cell-type presets. This reference is structured to be readable by both humans and AI chatbots, so that a user can paste it into a conversation and ask the AI to find the relevant parameter. The repository also includes a quickstart guide with a single copy-paste command that runs the pipeline on the included data, producing results in under a minute, providing immediate feedback that the installation succeeded and a concrete starting point for customization.
+
+% ---- Discussion ----
+\section*{Discussion}
+
+The approach presented here rests on a simple observation: the bottleneck in biological image analysis is architectural not algorithmic. Validated algorithms exist for virtually every step of a standard analysis pipeline. What prevents most bench biologists from using them is the programming required to connect these algorithms into a coherent workflow. AI coding assistants eliminate this barrier by translating natural language descriptions into functional code.
+
+This is not a claim that AI can replace computational biologists. Complex analysis pipelines, novel algorithms, and performance-critical applications will continue to require programming expertise. Rather, we argue that for standard analyses including cell segmentation, colocalization, puncta counting, and spatial measurements the combination of a well-designed command line tool and an AI assistant is sufficient for a biologist to produce rigorous, reproducible quantification.
+
+Several design choices in \texttt{cellquant} prioritize accessibility. Distributing the pipeline as a single Python script eliminates installation complexity. The user downloads one file. There is no \texttt{pip install}, no import resolution, and no version conflict between subpackages. Dependencies are managed through environment specification. A CLI is less intuitive than a graphical user interface for first-time users but is fundamentally more reproducible: the exact command used to generate results can be recorded, shared, and re-executed. Critically, CLIs are legible to AI assistants, enabling the vibecoder workflow in which the user describes their needs and the AI generates the appropriate command.
+
+The pipeline enforces replicate-level statistical testing, which can produce unsatisfying $p$-values when the number of biological replicates is small. We view this as a feature rather than a limitation. The visual display of per-cell data allows the reader to evaluate effect sizes directly, while the replicate-level test provides an honest assessment of statistical evidence. Inflating significance through pseudo-replication is a well-documented problem in biological image analysis \citep{lord2020superplots, lazic2018whatis}, and tools should not facilitate it.
+
+The modular design of the CLI supports straightforward extension to additional analysis types. Planned additions include 3D segmentation for confocal stacks, time-series analysis for live imaging, machine learning-based phenotype classification, and integration with plate-based screening workflows. The cell-type preset system can be extended to additional organisms (e.g., \emph{Drosophila}, \emph{C.\ elegans}, plant cells) as validated parameter sets are established.
+
+More broadly, we envision \texttt{cellquant} as a template for AI-accessible scientific software. The principles demonstrated here of human-readable configuration, visual validation, honest statistics, and comprehensive documentation are not specific to image analysis. Any computational workflow that can be parameterized through a CLI can be made accessible to domain experts through the same vibecoder approach.
+
+% ---- Limitations ----
+\section*{Limitations of the study}
+
+The current pipeline is limited to maximum intensity projections and does not handle 3D segmentation or time-lapse analysis. The puncta detection algorithm (Laplacian-of-Gaussian) assumes approximately circular puncta and may not perform well on elongated or irregularly shaped structures. The colocalization analysis uses global Costes thresholding, which may not be optimal for highly heterogeneous cell populations.
+
+The vibecoder workflow itself has limitations. The user must be able to evaluate QC overlays and recognize when segmentation is incorrect. This requires familiarity with the biological system being imaged. Additionally, the user's ability to communicate effectively with an AI assistant depends on being able to describe problems in sufficient detail---a skill that develops with practice.
+
+% ---- Materials and Methods ----
+\section*{Materials and Methods}
+
+\subsection*{Cell culture and treatment}
+
+\paragraph{Mammalian cells.}
+U2OS cells stably expressing G3BP1-GFP and PABPC1-mCherry were cultured in DMEM supplemented with 10\% FBS at 37\textdegree C with 5\% CO\textsubscript{2}. For stress granule induction, cells were treated with 500~\textmu M sodium arsenite for 45 minutes or left untreated (vehicle control). Cells were fixed with 4\% paraformaldehyde and 4\% sucrose, quenched with 125~mM glycine, and stained with DAPI as described \citep{ali2023adaptive}. G3BP1-GFP and PABPC1-mCherry signals are from the stably expressed fluorescent fusion proteins.
+
+\paragraph{Yeast cells.}
+Budding yeast (\emph{Saccharomyces cerevisiae}, W303 background) expressing endogenously tagged Sis1-mVenus, Tif6-HaloTag, and Nsr1-mScarlet-I (strain construction as described in \citealt{ali2023adaptive}) were grown to mid-log phase at 30\textdegree C in synthetic complete medium. Tif6-HaloTag was labeled with Janelia Fluor 646 HaloTag ligand (JF646, 1~\textmu M) as described \citep{ali2023adaptive}. For the temperature series, aliquots were shifted to 25, 30, 32, 36, or 40\textdegree C for 6 hours starting from a pre-grown log-phase culture at 30\textdegree C. Cells were fixed in 1\% paraformaldehyde as described \citep{garde2024feedback}.
+
+\subsection*{Image acquisition}
+
+All images were acquired on a Nikon SoRa spinning disk confocal microscope (63$\times$ objective) at the University of Chicago Integrated Light Microscopy Core (RRID: SCR\_019197). Exposure time was 100~ms per channel for all acquisitions. Images were collected as z-stacks and converted to maximum intensity projections (MIPs) prior to analysis. For U2OS cells, z-stacks consisted of 10 slices at 0.25~\textmu m step size. For yeast, z-stacks consisted of 71 slices at 0.1~\textmu m step size. Pixel size was 0.094~\textmu m/pixel for both datasets (1192~$\times$~1200 pixels $=$ 112.5~$\times$~113.3~\textmu m field of view).
+
+\subsection*{Image analysis pipeline}
+
+All image analysis was performed using \texttt{cellquant.py} (version 1.0, available at \url{https://github.com/davidpincus/cellquant}). The pipeline was run locally on a MacBook Pro (Apple M-series processor) using CPU-mode Cellpose due to MPS GPU incompatibility with the cpsam Transformer model.
+
+\paragraph{Mammalian cell analysis.}
+Images were processed with the following command:
+
+\begin{lstlisting}[language=bash]
+python cellquant.py /path/to/images/ \
+    "1:DAPI:nucleus" "2:G3BP1:quantify" "3:PABPC1:quantify" \
+    --cell-type mammalian \
+    --out /path/to/output/ \
+    --filename-pattern "MAX_{condition}_rep{replicate}"
+\end{lstlisting}
+
+Key parameters (from the mammalian preset): Cellpose cpsam model, $3\times$ downsampling, cell diameter 120 pixels, puncta detection in the cytoplasmic compartment (cell minus nucleus).
+
+\paragraph{Yeast cell analysis.}
+Images were processed with the following command:
+
+\begin{lstlisting}[language=bash]
+python cellquant.py /path/to/images/ \
+    "1:Tif6:quantify" "2:Nsr1:nucleolus" "3:Sis1:quantify" \
+    --cell-type yeast \
+    --out /path/to/output/ \
+    --colocalization \
+    --nucleolar-proximity Nsr1 \
+    --puncta-channels Sis1 Tif6 \
+    --trend \
+    --filename-pattern "MAX_{condition}_rep{replicate}"
+\end{lstlisting}
+
+Key parameters (from the yeast preset): Cellpose cpsam model, no downsampling, cell diameter 40 pixels, composite-channel segmentation input, cell area filtering (200--5,000 pixels), whole-cell puncta detection.
+
+\subsection*{Statistical analysis}
+
+Per-cell measurements were summarized at the replicate (image) level using medians. For two-condition comparisons, Wilcoxon rank-sum tests were performed on replicate-level medians. For multi-condition temperature series (single replicate per condition), data are presented descriptively without statistical testing. Superplots display per-cell data as jittered scatter plots with replicate medians marked as diamonds.
+
+\subsection*{Software and reproducibility}
+
+The complete analysis environment is specified in \texttt{environment.yml} and includes Python 3.11+, Cellpose 4.x, scikit-image 0.26, numpy, pandas, matplotlib, scipy, and PyYAML. All code, example data, and expected outputs are available at \url{https://github.com/davidpincus/cellquant}. Full datasets are deposited at Zenodo (DOI: 10.5281/zenodo.18760422).
+
+% ---- Acknowledgments ----
+\section*{Acknowledgments}
+
+We thank Madeline Herwig and members of the Bardwell and Jakob labs for beta testing \texttt{cellquant} and providing valuable feedback. We acknowledge the University of Chicago Integrated Light Microscopy Core (RRID: SCR\_019197) for microscopy support. This work was supported by NIH grants R01 GM138689 and RM1 GM153533 and NSF QLCI QuBBE grant OMA-2121044 to D.P.
+
+% ---- References ----
+\bibliographystyle{unsrtnat}
+\bibliography{references}
+
+% ---- Supplemental Materials ----
+\clearpage
+\section*{Supplemental Materials}
+
+\textbf{Supplemental Figure 1.} Complete set of QC overlays for mammalian cell dataset.
+
+\textbf{Supplemental Figure 2.} Complete set of QC overlays for yeast temperature series.
+
+\textbf{Supplemental Figure 3.} All 21 superplot metrics from yeast temperature series analysis.
+
+\textbf{Supplemental Table 1.} Complete parameter settings for mammalian and yeast analyses (from \texttt{config\_used.yml}).
+
+\textbf{Supplemental Table 2.} Per-cell quantification data (cells.csv) for both datasets.
+
+\textbf{Supplemental Table 3.} Pairwise colocalization metrics for yeast temperature series.
+
+\textbf{Supplemental Table 4.} Nucleolar proximity measurements for yeast temperature series.
+
+\textbf{Supplemental Table 5.} Nucleolar morphology measurements for yeast temperature series.
+
+\end{document}
