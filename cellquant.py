@@ -611,8 +611,10 @@ def find_images(img_dir: Path, cfg: dict) -> list[Path]:
 def load_tiff(path: Path, channels: list[dict]) -> dict[str, np.ndarray]:
     """Load a multi-channel TIFF and return {channel_name: 2D array}."""
     arr = np.asarray(tiff.imread(str(path)))
+    if arr.ndim == 2:
+        arr = arr[np.newaxis, :, :]  # single-channel 2D → (1, Y, X)
     if arr.ndim != 3:
-        raise ValueError(f"{path.name}: expected 3D array, got shape {arr.shape}")
+        raise ValueError(f"{path.name}: expected 2D or 3D array, got shape {arr.shape}")
 
     n_ch = len(channels)
 
