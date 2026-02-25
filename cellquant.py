@@ -159,6 +159,7 @@ DEFAULTS: dict[str, Any] = {
     "filename_pattern": "MAX_{condition}_rep{replicate}",
     "condition_map": {},
     "condition_order": [],
+    "reference_condition": None,
 
     # Cell area filtering
     "min_cell_area": 0,
@@ -318,6 +319,7 @@ def build_config(args: argparse.Namespace) -> dict[str, Any]:
         "cpu_threads": args.cpu_threads,
         "filename_pattern": args.filename_pattern,
         "condition_order": args.condition_order,
+        "reference_condition": args.reference_condition,
         "cell_seg_channel": args.cell_seg_channel,
         "file_pattern": args.file_pattern,
         "min_cell_area": args.min_cell_area,
@@ -482,6 +484,9 @@ def parse_args() -> argparse.Namespace:
                          '(e.g. "MAX_{condition}_rep{replicate}")')
     ap.add_argument("--condition-order", nargs="+", default=None,
                     help="X-axis order for superplots (e.g. control arsenite)")
+    ap.add_argument("--reference-condition", default=None,
+                    help="Reference condition for pairwise Wilcoxon p-values "
+                         "(e.g. NT_NT)")
     ap.add_argument("--condition-map", nargs="+", default=None,
                     help='Map raw condition names: key=value pairs '
                          '(e.g. "ctrl=control" "as=arsenite")')
@@ -1471,6 +1476,89 @@ def _build_superplot_metrics(
     return metrics
 
 
+def compute_pairwise_pvalues(
+    df: pd.DataFrame,
+    metric: str,
+    condition_order: list[str],
+    reference_condition: str,
+) -> dict[str, dict]:
+    """Wilcoxon rank-sum of replicate medians: each condition vs reference.
+
+    Returns {condition: {"pval": float, "pval_corrected": float, "n_ref": int,
+    "n_test": int}} for conditions that have ≥3 replicates (ref must too).
+    """
+    rep_meds = (
+        df.groupby(["condition", "image"], as_index=False)[metric]
+          .median()
+          .rename(columns={metric: "rep_median"})
+    )
+    ref_meds = rep_meds.loc[
+        rep_meds["condition"] == reference_condition, "rep_median"
+    ].dropna().values
+    if len(ref_meds) < 3:
+        return {}
+
+    test_conds = [c for c in condition_order if c != reference_condition]
+    # Count testable conditions for Bonferroni
+    testable = []
+    for cond in test_conds:
+        meds = rep_meds.loc[
+            rep_meds["condition"] == cond, "rep_median"].dropna().values
+        if len(meds) >= 3:
+            testable.append((cond, meds))
+    n_tests = len(testable)
+    if n_tests == 0:
+        return {}
+
+    results: dict[str, dict] = {}
+    for cond, meds in testable:
+        _, pval = mannwhitneyu(meds, ref_meds, alternative="two-sided")
+        results[cond] = {
+            "pval": pval,
+            "pval_corrected": min(pval * n_tests, 1.0),
+            "n_test": len(meds),
+            "n_ref": len(ref_meds),
+            "n_comparisons": n_tests,
+        }
+    return results
+
+
+def _format_pval(pval: float) -> str:
+    if pval < 0.001:
+        return "p < 0.001"
+    return f"p = {pval:.2g}"
+
+
+def _annotate_pvalues(ax, condition_order, pvalues, vals_by_cond,
+                      reference_condition=None):
+    """Add p-value annotations above each non-reference condition column."""
+    if not pvalues:
+        return
+    all_vals = np.concatenate([v for v in vals_by_cond if v.size > 0])
+    if all_vals.size == 0:
+        return
+    y_max = float(np.nanmax(all_vals))
+    y_range = float(np.nanmax(all_vals) - np.nanmin(all_vals))
+    if y_range == 0:
+        y_range = abs(y_max) * 0.1 or 1.0
+    text_y = y_max + 0.06 * y_range
+    for i, cond in enumerate(condition_order):
+        if cond not in pvalues:
+            continue
+        info = pvalues[cond]
+        p_corr = info["pval_corrected"]
+        ax.text(i, text_y, _format_pval(p_corr),
+                ha="center", va="bottom", fontsize=7, color="black")
+    # Footnote
+    if pvalues:
+        n_comp = next(iter(pvalues.values()))["n_comparisons"]
+        ref_label = (reference_condition or "").capitalize()
+        ax.text(0.99, 0.01,
+                f"vs {ref_label}, Bonferroni (n={n_comp})",
+                transform=ax.transAxes, ha="right", va="bottom",
+                fontsize=6, color="gray")
+
+
 def _superplot_violin_2(
     df: pd.DataFrame,
     metric: str,
@@ -1481,6 +1569,8 @@ def _superplot_violin_2(
     jitter_sd: float = 0.06,
     seed: int = 0,
     figsize: tuple[float, float] = (4.4, 6.4),
+    pvalues: dict | None = None,
+    reference_condition: str | None = None,
 ) -> None:
     """Violin superplot for <=2 conditions."""
     rng = np.random.default_rng(seed)
@@ -1541,8 +1631,12 @@ def _superplot_violin_2(
             plt.hlines(med, i - 0.3, i + 0.3,
                         colors="black", linewidths=1.5, zorder=6)
 
-    # Wilcoxon rank-sum on replicate medians (≥3 per condition required)
-    if len(condition_order) == 2:
+    ax = plt.gca()
+    if pvalues:
+        _annotate_pvalues(ax, condition_order, pvalues, vals_by_cond,
+                          reference_condition)
+    elif len(condition_order) == 2:
+        # Legacy 2-condition bracket
         meds_a = rep_meds.loc[
             rep_meds["condition"] == condition_order[0], "rep_median"
         ].dropna().values
@@ -1551,9 +1645,7 @@ def _superplot_violin_2(
         ].dropna().values
         if len(meds_a) >= 3 and len(meds_b) >= 3:
             _, pval = mannwhitneyu(meds_a, meds_b, alternative="two-sided")
-            p_text = f"p < 0.001" if pval < 0.001 else f"p = {pval:.2g}"
-            # Bracket annotation
-            ax = plt.gca()
+            p_text = _format_pval(pval)
             all_vals = np.concatenate(vals_by_cond)
             y_max = float(np.nanmax(all_vals))
             y_range = float(np.nanmax(all_vals) - np.nanmin(all_vals))
@@ -1586,6 +1678,8 @@ def _superplot_strip_multi(
     show_trend: bool = False,
     jitter_sd: float = 0.08,
     seed: int = 0,
+    pvalues: dict | None = None,
+    reference_condition: str | None = None,
 ) -> None:
     """Jittered strip plot for 3+ conditions (or 2 with --trend)."""
     n_cond = len(condition_order)
@@ -1603,9 +1697,11 @@ def _superplot_strip_multi(
 
     fig = plt.figure(figsize=figsize)
 
+    vals_by_cond: list[np.ndarray] = []
     for i, cond in enumerate(condition_order):
         vals = (df.loc[df["condition"] == cond, metric]
                 .dropna().astype(float).values)
+        vals_by_cond.append(vals)
         x = i + rng.normal(0, jitter_sd, size=len(vals))
         plt.scatter(x, vals, s=8, alpha=0.5)
 
@@ -1648,6 +1744,11 @@ def _superplot_strip_multi(
             xs, ys = zip(*valid)
             plt.plot(xs, ys, "--", color="gray", linewidth=1.2, zorder=4)
 
+    ax = plt.gca()
+    if pvalues:
+        _annotate_pvalues(ax, condition_order, pvalues, vals_by_cond,
+                          reference_condition)
+
     display_labels = [c.capitalize() for c in condition_order]
     plt.xticks(range(n_cond), display_labels, rotation=45, ha="right")
     plt.ylabel(y_label)
@@ -1667,15 +1768,20 @@ def superplot_violin(
     title: str,
     condition_order: list[str],
     show_trend: bool = False,
+    pvalues: dict | None = None,
+    reference_condition: str | None = None,
     **kwargs,
 ) -> None:
     """Dispatch: violin for <=2 conditions (no trend), strip plot otherwise."""
     if len(condition_order) <= 2 and not show_trend:
         _superplot_violin_2(df, metric, out_png, y_label, title,
-                            condition_order, **kwargs)
+                            condition_order, pvalues=pvalues,
+                            reference_condition=reference_condition, **kwargs)
     else:
         _superplot_strip_multi(df, metric, out_png, y_label, title,
-                               condition_order, show_trend=show_trend)
+                               condition_order, show_trend=show_trend,
+                               pvalues=pvalues,
+                               reference_condition=reference_condition)
 
 
 # ---------------------------------------------------------------------------
@@ -2148,13 +2254,40 @@ def main() -> None:
     plot_dir = out_dir / "plots"
     plot_dir.mkdir(parents=True, exist_ok=True)
 
+    ref_cond = cfg.get("reference_condition")
     show_trend = bool(cfg.get("trend", False))
+
+    # Compute pairwise p-values per metric (if reference condition set)
+    all_pval_rows: list[dict] = []
     for col, y_label, title in avail:
+        pvalues: dict | None = None
+        if ref_cond and ref_cond in condition_order:
+            pvalues = compute_pairwise_pvalues(
+                plot_df, col, condition_order, ref_cond)
+            for cond, info in pvalues.items():
+                all_pval_rows.append({
+                    "metric": col,
+                    "condition": cond,
+                    "reference": ref_cond,
+                    "pval": info["pval"],
+                    "pval_corrected": info["pval_corrected"],
+                    "n_test_replicates": info["n_test"],
+                    "n_ref_replicates": info["n_ref"],
+                    "n_comparisons": info["n_comparisons"],
+                })
         superplot_violin(
             plot_df, col, plot_dir / f"{col}_superplot.png",
-            y_label, title, condition_order, show_trend=show_trend)
+            y_label, title, condition_order, show_trend=show_trend,
+            pvalues=pvalues, reference_condition=ref_cond)
 
     print(f"\n  Wrote {len(avail)} superplots to {plot_dir}/")
+
+    # Write p-value summary CSV
+    if all_pval_rows:
+        pval_df = pd.DataFrame(all_pval_rows)
+        pval_csv = out_dir / "pvalues.csv"
+        pval_df.to_csv(pval_csv, index=False)
+        print(f"  {pval_csv}")
 
     # Prism-ready CSVs
     prism_dir = out_dir / "prism"
