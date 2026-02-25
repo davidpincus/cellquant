@@ -110,6 +110,7 @@ DEFAULTS: dict[str, Any] = {
     "exts": [".tif", ".tiff"],
     "file_pattern": None,
     "save_masks": True,
+    "reuse_masks": False,
 
     # Segmentation downsampling (smooths subcellular texture before Cellpose)
     "seg_downsample": 3,
@@ -334,6 +335,8 @@ def build_config(args: argparse.Namespace) -> dict[str, Any]:
         cfg["use_gpu"] = False
     if args.no_save_masks:
         cfg["save_masks"] = False
+    if args.reuse_masks:
+        cfg["reuse_masks"] = True
     if args.skip_plots:
         cfg["skip_plots"] = True
     if args.colocalization:
@@ -488,6 +491,9 @@ def parse_args() -> argparse.Namespace:
                     help='Glob pattern for image files (e.g. "*.tif")')
     ap.add_argument("--no-save-masks", action="store_true",
                     help="Disable writing segmentation/puncta masks to disk")
+    ap.add_argument("--reuse-masks", action="store_true",
+                    help="Load existing masks from --out masks/ dir instead "
+                         "of running Cellpose")
     ap.add_argument("--skip-plots", action="store_true",
                     help="Skip superplot and Prism CSV generation")
 
@@ -1843,7 +1849,10 @@ def main() -> None:
     if nuc_prox_ch_name:
         print(f"Nucleolar proximity: {nuc_prox_ch_name}")
 
-    model = init_model(cfg)
+    reuse_masks = bool(cfg.get("reuse_masks", False))
+    if reuse_masks:
+        print("Reusing existing masks from", mask_dir)
+    model = None if reuse_masks else init_model(cfg)
 
     all_cells: list[pd.DataFrame] = []
     all_imgs: list[pd.DataFrame] = []
@@ -1860,37 +1869,54 @@ def main() -> None:
 
         # Load image → dict of channel arrays
         images = load_tiff(p, channels)
+        first_img = next(iter(images.values()))
+        ref_shape = first_img.shape  # (H, W)
 
-        # Determine cell seg input
-        if use_composite_seg:
-            cell_seg_img = build_composite_seg_image(images, channels, cfg)
+        if reuse_masks:
+            # Load existing masks instead of running Cellpose
+            cell_mask_path = mask_dir / f"{p.stem}_cellmask.tif"
+            if not cell_mask_path.exists():
+                print(f"  [warn] mask not found: {cell_mask_path.name}, skipping")
+                continue
+            cell_mask = np.asarray(
+                tiff.imread(str(cell_mask_path))).astype(np.int32)
+            nuc_mask_path = mask_dir / f"{p.stem}_nucmask.tif"
+            if has_nuclei and nuc_mask_path.exists():
+                nuc_mask = np.asarray(
+                    tiff.imread(str(nuc_mask_path))).astype(np.int32)
+            else:
+                nuc_mask = np.zeros(ref_shape, dtype=np.int32)
         else:
-            cell_seg_img = images[cell_seg_ch["name"]]
-        ref_shape = cell_seg_img.shape  # (H, W)
+            # Determine cell seg input
+            if use_composite_seg:
+                cell_seg_img = build_composite_seg_image(images, channels, cfg)
+            else:
+                cell_seg_img = images[cell_seg_ch["name"]]
+            ref_shape = cell_seg_img.shape  # (H, W)
 
-        # Downsample before Cellpose, then upsample masks back
-        ds = max(1, int(cfg.get("seg_downsample", 1)))
+            # Downsample before Cellpose, then upsample masks back
+            ds = max(1, int(cfg.get("seg_downsample", 1)))
 
-        # Nuclear segmentation (skipped when no nucleus channel)
-        if has_nuclei:
-            nuc_img = images[nuc_ch["name"]]
-            nuc_seg_in = nuc_img[::ds, ::ds] if ds > 1 else nuc_img
-            nuc_small = segment_nuclei(model, nuc_seg_in, cfg)
-            nuc_mask = (upsample_labels_nn(nuc_small, ref_shape)
-                        if ds > 1 else nuc_small)
-        else:
-            nuc_mask = np.zeros(ref_shape, dtype=np.int32)
+            # Nuclear segmentation (skipped when no nucleus channel)
+            if has_nuclei:
+                nuc_img = images[nuc_ch["name"]]
+                nuc_seg_in = nuc_img[::ds, ::ds] if ds > 1 else nuc_img
+                nuc_small = segment_nuclei(model, nuc_seg_in, cfg)
+                nuc_mask = (upsample_labels_nn(nuc_small, ref_shape)
+                            if ds > 1 else nuc_small)
+            else:
+                nuc_mask = np.zeros(ref_shape, dtype=np.int32)
 
-        # Cell segmentation
-        cell_seg_in = cell_seg_img[::ds, ::ds] if ds > 1 else cell_seg_img
-        cell_small = segment_cells(model, cell_seg_in, cfg)
-        cell_mask = (upsample_labels_nn(cell_small, ref_shape)
-                     if ds > 1 else cell_small)
+            # Cell segmentation
+            cell_seg_in = cell_seg_img[::ds, ::ds] if ds > 1 else cell_seg_img
+            cell_small = segment_cells(model, cell_seg_in, cfg)
+            cell_mask = (upsample_labels_nn(cell_small, ref_shape)
+                         if ds > 1 else cell_small)
 
-        # Cell area filtering
-        min_area = int(cfg.get("min_cell_area", 0))
-        max_area = int(cfg.get("max_cell_area", 0))
-        cell_mask = filter_cells_by_area(cell_mask, min_area, max_area)
+            # Cell area filtering
+            min_area = int(cfg.get("min_cell_area", 0))
+            max_area = int(cfg.get("max_cell_area", 0))
+            cell_mask = filter_cells_by_area(cell_mask, min_area, max_area)
 
         cell_to_nucs = map_nuclei_to_cells(nuc_mask, cell_mask)
 
