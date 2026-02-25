@@ -1632,30 +1632,23 @@ def _superplot_violin_2(
                         colors="black", linewidths=1.5, zorder=6)
 
     ax = plt.gca()
-    if pvalues:
+    if pvalues and len(condition_order) == 2 and len(pvalues) == 1:
+        # 2-condition bracket style
+        info = next(iter(pvalues.values()))
+        p_text = _format_pval(info["pval"])
+        all_vals = np.concatenate(vals_by_cond)
+        y_max = float(np.nanmax(all_vals))
+        y_range = float(np.nanmax(all_vals) - np.nanmin(all_vals))
+        bar_y = y_max + 0.06 * y_range
+        tip_len = 0.02 * y_range
+        ax.plot([0, 0, 1, 1],
+                [bar_y - tip_len, bar_y, bar_y, bar_y - tip_len],
+                color="black", linewidth=1.0)
+        ax.text(0.5, bar_y + 0.01 * y_range, p_text,
+                ha="center", va="bottom", fontsize=9)
+    elif pvalues:
         _annotate_pvalues(ax, condition_order, pvalues, vals_by_cond,
                           reference_condition)
-    elif len(condition_order) == 2:
-        # Legacy 2-condition bracket
-        meds_a = rep_meds.loc[
-            rep_meds["condition"] == condition_order[0], "rep_median"
-        ].dropna().values
-        meds_b = rep_meds.loc[
-            rep_meds["condition"] == condition_order[1], "rep_median"
-        ].dropna().values
-        if len(meds_a) >= 3 and len(meds_b) >= 3:
-            _, pval = mannwhitneyu(meds_a, meds_b, alternative="two-sided")
-            p_text = _format_pval(pval)
-            all_vals = np.concatenate(vals_by_cond)
-            y_max = float(np.nanmax(all_vals))
-            y_range = float(np.nanmax(all_vals) - np.nanmin(all_vals))
-            bar_y = y_max + 0.06 * y_range
-            tip_len = 0.02 * y_range
-            ax.plot([0, 0, 1, 1],
-                    [bar_y - tip_len, bar_y, bar_y, bar_y - tip_len],
-                    color="black", linewidth=1.0)
-            ax.text(0.5, bar_y + 0.01 * y_range, p_text,
-                    ha="center", va="bottom", fontsize=9)
 
     display_labels = [c.capitalize() for c in condition_order]
     plt.xticks(range(len(condition_order)), display_labels)
@@ -2255,9 +2248,13 @@ def main() -> None:
     plot_dir.mkdir(parents=True, exist_ok=True)
 
     ref_cond = cfg.get("reference_condition")
+    # For 2-condition datasets, default to using the first condition as
+    # reference so p-values are always computed and written to CSV.
+    if not ref_cond and len(condition_order) == 2:
+        ref_cond = condition_order[0]
     show_trend = bool(cfg.get("trend", False))
 
-    # Compute pairwise p-values per metric (if reference condition set)
+    # Compute pairwise p-values per metric
     all_pval_rows: list[dict] = []
     for col, y_label, title in avail:
         pvalues: dict | None = None
