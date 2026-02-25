@@ -366,11 +366,24 @@ def _build_filename_regex(pattern: str) -> re.Pattern | None:
     return re.compile(temp, re.IGNORECASE)
 
 
+def _build_filename_regex_no_rep(pattern: str) -> re.Pattern | None:
+    """Fallback regex when {replicate} is at the end: capture condition only."""
+    if not pattern or not pattern.endswith("{replicate}"):
+        return None
+    stripped = pattern[: -len("{replicate}")]
+    COND_TOK = "__COND__"
+    temp = stripped.replace("{condition}", COND_TOK)
+    temp = re.escape(temp)
+    temp = temp.replace(COND_TOK, r"(?P<condition>\w+)")
+    return re.compile(temp + "$", re.IGNORECASE)
+
+
 def parse_filename_metadata(stem: str, cfg: dict) -> dict[str, str]:
     info: dict[str, str] = {"condition": "", "replicate": ""}
     if not cfg.get("parse_from_filename", False):
         return info
-    regex = _build_filename_regex(cfg.get("filename_pattern", ""))
+    pattern = cfg.get("filename_pattern", "")
+    regex = _build_filename_regex(pattern)
     if regex is None:
         return info
     m = regex.search(stem)
@@ -380,6 +393,16 @@ def parse_filename_metadata(stem: str, cfg: dict) -> dict[str, str]:
         cmap = cfg.get("condition_map", {})
         info["condition"] = cmap.get(raw_cond.lower(), raw_cond) if raw_cond else ""
         info["replicate"] = gd.get("replicate", "")
+    else:
+        # If {replicate} is trailing and digits are absent, default to "1"
+        fallback = _build_filename_regex_no_rep(pattern)
+        if fallback:
+            m2 = fallback.search(stem)
+            if m2:
+                raw_cond = m2.group("condition")
+                cmap = cfg.get("condition_map", {})
+                info["condition"] = cmap.get(raw_cond.lower(), raw_cond) if raw_cond else ""
+                info["replicate"] = "1"
     return info
 
 
