@@ -397,7 +397,7 @@ def parse_filename_metadata(stem: str, cfg: dict) -> dict[str, str]:
         info["condition"] = cmap.get(raw_cond.lower(), raw_cond) if raw_cond else ""
         info["replicate"] = gd.get("replicate", "")
     else:
-        # If {replicate} is trailing and digits are absent, default to "1"
+        # If {replicate} is trailing and digits are absent, default to "0"
         fallback = _build_filename_regex_no_rep(pattern)
         if fallback:
             m2 = fallback.search(stem)
@@ -405,7 +405,7 @@ def parse_filename_metadata(stem: str, cfg: dict) -> dict[str, str]:
                 raw_cond = m2.group("condition")
                 cmap = cfg.get("condition_map", {})
                 info["condition"] = cmap.get(raw_cond.lower(), raw_cond) if raw_cond else ""
-                info["replicate"] = "1"
+                info["replicate"] = "0"
     return info
 
 
