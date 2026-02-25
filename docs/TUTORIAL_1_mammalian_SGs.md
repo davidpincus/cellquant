@@ -114,7 +114,8 @@ Found 9 images in example_data/mammalian_SGs
 GPU: False (or True if you have a CUDA GPU)
 Channels: DAPI(nucleus), G3BP1(quantify), PABPC1(quantify)
 Nuclear segmentation: yes
-Cell seg channel: DAPI
+Cell seg channel: composite (all non-skip)
+Puncta channels: G3BP1, PABPC1
 
 === [1/9] MAX_control_rep1.tif ===
   Cellpose: cells 14, nuclei 15 ...
@@ -168,10 +169,10 @@ output/
 │   ├── MAX_control_rep1_cellmask.tif
 │   └── ...
 ├── plots/                   # Superplot visualizations
-│   ├── n_puncta_G3BP1_superplot.png
+│   ├── G3BP1_puncta_n_superplot.png
 │   └── ...
 └── prism/                   # Prism-ready CSV files
-    ├── n_puncta_G3BP1_prism.csv
+    ├── wide_G3BP1_puncta_n.csv
     └── ...
 ```
 
@@ -186,10 +187,10 @@ Each row is one cell. Key columns:
 | `replicate` | Extracted from filename (e.g., "rep1") |
 | `cell_id` | Unique cell identifier within each image |
 | `cell_area_px` | Cell area in pixels |
-| `n_puncta_G3BP1` | Number of G3BP1 puncta in this cell |
-| `n_puncta_PABPC1` | Number of PABPC1 puncta in this cell |
-| `frac_condensed_G3BP1` | Fraction of G3BP1 signal in puncta |
-| `frac_condensed_PABPC1` | Fraction of PABPC1 signal in puncta |
+| `G3BP1_puncta_n` | Number of G3BP1 puncta in this cell |
+| `PABPC1_puncta_n` | Number of PABPC1 puncta in this cell |
+| `G3BP1_frac_intensity_in_puncta` | Fraction of G3BP1 signal in puncta |
+| `PABPC1_frac_intensity_in_puncta` | Fraction of PABPC1 signal in puncta |
 
 This CSV can be opened in Excel, imported into GraphPad Prism, or loaded in R/Python for further analysis.
 

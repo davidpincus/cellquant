@@ -14,6 +14,8 @@ Budding yeast expressing three fluorescent markers are imaged across a temperatu
 2. **Nsr1-BFP** (channel 2) — a dense fibrillar component (DFC) nucleolar marker, defines nucleolar position
 3. **Sis1-GFP** (channel 3) — an Hsp40 chaperone that forms cytoplasmic condensates under heat stress
 
+> **Note:** Both Tif6 and Sis1 change localization at high temperatures, but for different biological reasons. Tif6 is a ribosome biogenesis factor that normally localizes to the nucleolus; under heat stress, ribosome biogenesis shuts down and Tif6 redistributes to the cytoplasm. Sis1 is a cytosolic Hsp40 chaperone that forms condensates (visible puncta) under stress. If you see nuclear-to-cytoplasmic redistribution in channel 1, that is the expected Tif6 behavior, not a channel labeling error.
+
 We expect to see:
 - Sis1 condensates appearing at ≥36°C
 - Nucleolar shape changing from crescent (growing) to round (arrested)

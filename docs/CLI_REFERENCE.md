@@ -143,6 +143,7 @@ By default, the pipeline uses the `nucleus` channel for cell segmentation. If no
 
 ```bash
 --puncta-channels Sis1 Tif6     # Which channels to detect puncta in (by name)
+--no-puncta                     # Suppress puncta detection entirely (intensity metrics only)
 --log-sigma 1.5                 # Laplacian-of-Gaussian sigma
 --puncta-min-area-px 3          # Minimum punctum area (pixels)
 --puncta-max-area-px 500        # Maximum punctum area (pixels)
@@ -153,7 +154,7 @@ By default, the pipeline uses the `nucleus` channel for cell segmentation. If no
 --puncta-compartment {cytosol, whole-cell, nucleus}
 ```
 
-If `--puncta-channels` is not specified, puncta are detected in all `quantify` channels.
+**Default behavior:** If `--puncta-channels` is not specified, puncta are automatically detected in all `quantify` channels. Use `--no-puncta` to suppress puncta detection and compute only intensity metrics. Use `--puncta-channels` to override the default and detect puncta in specific channels only.
 
 `--puncta-compartment cytosol` restricts puncta detection to the cytoplasmic region (cell minus nucleus). Requires a `nucleus` channel. Falls back to `whole-cell` if no nucleus is available.
 

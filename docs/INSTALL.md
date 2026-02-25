@@ -81,6 +81,8 @@ ls cellquant.py
 ```
 If it prints `cellquant.py`, you're in the right place. If it says "No such file," you need to `cd` into the right directory.
 
+> **Moving the folder:** You can move the `cellquant-main` folder anywhere on your computer (e.g., your home directory or a projects folder). Just make sure to use the correct path when running commands. For example, if you moved it to `~/cellquant-main/`, you'd run `python ~/cellquant-main/cellquant.py ...`
+
 ## Step 4: Create the cellquant environment
 
 This creates an isolated Python environment with all the packages cellquant needs. It won't interfere with anything else on your computer.

@@ -429,6 +429,8 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--nucleus-dilate-px", type=int, default=None)
 
     # Puncta detection
+    ap.add_argument("--no-puncta", action="store_true",
+                    help="Suppress puncta detection (only compute intensity metrics)")
     ap.add_argument("--log-sigma", type=float, default=None)
     ap.add_argument("--puncta-min-area-px", type=int, default=None)
     ap.add_argument("--puncta-max-area-px", type=int, default=None)
@@ -1458,6 +1460,10 @@ def _superplot_violin_2(
                 .dropna().astype(float).values)
         vals_by_cond.append(vals)
 
+    # Skip if any condition has no data (violinplot crashes on empty arrays)
+    if any(v.size == 0 for v in vals_by_cond):
+        return
+
     fig = plt.figure(figsize=figsize)
 
     plt.violinplot(
@@ -1494,6 +1500,15 @@ def _superplot_violin_2(
             s=140, marker="D", linewidths=1.2,
             edgecolors="black", facecolors="none", zorder=5,
         )
+
+    # Overall median horizontal line per condition
+    for i, cond in enumerate(condition_order):
+        vals = (df.loc[df["condition"] == cond, metric]
+                .dropna().astype(float).values)
+        if len(vals) > 0:
+            med = float(np.median(vals))
+            plt.hlines(med, i - 0.3, i + 0.3,
+                        colors="black", linewidths=1.5, zorder=6)
 
     # Wilcoxon rank-sum on replicate medians (≥3 per condition required)
     if len(condition_order) == 2:
@@ -1541,10 +1556,19 @@ def _superplot_strip_multi(
     jitter_sd: float = 0.08,
     seed: int = 0,
 ) -> None:
-    """Jittered strip plot for 3+ conditions."""
+    """Jittered strip plot for 3+ conditions (or 2 with --trend)."""
     n_cond = len(condition_order)
     figsize = (max(4.4, 1.5 * n_cond), 6.4)
     rng = np.random.default_rng(seed)
+
+    # Check for any data to plot
+    has_data = False
+    for cond in condition_order:
+        if df.loc[df["condition"] == cond, metric].dropna().size > 0:
+            has_data = True
+            break
+    if not has_data:
+        return
 
     fig = plt.figure(figsize=figsize)
 
@@ -1577,6 +1601,15 @@ def _superplot_strip_multi(
         )
         cond_medians.append(float(np.median(meds)))
 
+    # Overall median horizontal line per condition
+    for i, cond in enumerate(condition_order):
+        vals = (df.loc[df["condition"] == cond, metric]
+                .dropna().astype(float).values)
+        if len(vals) > 0:
+            med = float(np.median(vals))
+            plt.hlines(med, i - 0.3, i + 0.3,
+                        colors="black", linewidths=1.5, zorder=6)
+
     # Optional trend line through condition medians
     if show_trend:
         valid = [(i, m) for i, m in enumerate(cond_medians) if not np.isnan(m)]
@@ -1605,8 +1638,8 @@ def superplot_violin(
     show_trend: bool = False,
     **kwargs,
 ) -> None:
-    """Dispatch: violin for <=2 conditions, strip plot for 3+."""
-    if len(condition_order) <= 2:
+    """Dispatch: violin for <=2 conditions (no trend), strip plot otherwise."""
+    if len(condition_order) <= 2 and not show_trend:
         _superplot_violin_2(df, metric, out_png, y_label, title,
                             condition_order, **kwargs)
     else:
@@ -1684,7 +1717,16 @@ def main() -> None:
     has_nuclei = nuc_ch is not None
     quantify_chs = get_quantify_channels(channels)
     nucleolus_chs = get_nucleolus_channels(channels)
-    puncta_chs = get_puncta_channels(channels, args.puncta_channels)
+
+    # Auto-populate puncta channels from quantify channels when not specified
+    if args.no_puncta:
+        puncta_names = []
+    elif args.puncta_channels is not None:
+        puncta_names = args.puncta_channels
+    else:
+        # Default: detect puncta in all quantify channels
+        puncta_names = [ch["name"] for ch in quantify_chs] if quantify_chs else []
+    puncta_chs = get_puncta_channels(channels, puncta_names if puncta_names else None)
 
     # Colocalization channels = quantify + nucleolus (deduplicated)
     coloc_channels: list[dict] = []
@@ -1726,10 +1768,13 @@ def main() -> None:
               "all cells will fail nuclei gate")
 
     # Determine cell seg input mode
+    # Use composite (sum of all non-skip channels) unless the user specifies
+    # a cell-boundary role or explicit --cell-seg-channel.  Composite avoids
+    # the problem of a single quantify channel's bright puncta (e.g. stress
+    # granules) being mistakenly segmented as tiny "cells" by Cellpose.
     has_cell_boundary = any(ch["role"] == "cell-boundary" for ch in channels)
     explicit_seg_ch = cfg.get("cell_seg_channel")
-    use_composite_seg = (not has_nuclei and not has_cell_boundary
-                         and not explicit_seg_ch)
+    use_composite_seg = (not has_cell_boundary and not explicit_seg_ch)
 
     if not use_composite_seg:
         cell_seg_ch = get_cell_seg_channel(channels, cfg)
