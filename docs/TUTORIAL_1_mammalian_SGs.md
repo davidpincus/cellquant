@@ -150,8 +150,8 @@ Each QC image shows:
 **If something looks wrong:**
 - Cells merging together → try `--cell-diameter 80` (smaller diameter)
 - Cells being split → try `--cell-diameter 150` (larger diameter)
-- Too many false puncta → try `--log-sigma 2.0` (stricter detection)
-- Missing real puncta → try `--log-sigma 1.0` (more sensitive detection)
+- Too many false puncta → try `--log-sigma 1.0` (smaller sigma = more selective)
+- Missing real puncta → try `--log-sigma 2.0` (larger sigma = more permissive)
 
 Ask your AI assistant: "The cells in my QC overlay are being merged together. Here's what the image looks like: [describe what you see]. How do I fix this?"
 

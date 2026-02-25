@@ -74,7 +74,7 @@ python cellquant.py /path/to/images/ \
 
 - **Cells merging:** add `--cell-diameter 30` (smaller)
 - **Cells splitting:** add `--cell-diameter 150` (bigger)
-- **Too many false puncta:** add `--log-sigma 2.0`
+- **Too many false puncta:** add `--log-sigma 1.0` (smaller = more selective)
 - **Apple Silicon warning:** normal, ignore it
 
 See [Troubleshooting](TROUBLESHOOTING.md) or ask your AI assistant.

@@ -128,6 +128,23 @@ This is a common challenge. Try:
 --flow-threshold 0.6   # stricter flow threshold
 ```
 
+### Some cells are not being segmented at all
+
+**Symptom:** QC overlays show cells with no boundary drawn. In puncta channels, the puncta mask may appear to outline the missing cell's boundary — this happens because a neighboring cell's mask expanded into the undetected cell's space.
+
+**Likely cause:** Cellpose's cell probability threshold is too conservative, so low-contrast cells are ignored.
+
+**Fix:** Lower the cell probability threshold (default 0.0):
+```bash
+--cellprob-threshold -2.0    # more aggressive detection
+--cellprob-threshold -4.0    # even more aggressive (may over-segment)
+```
+
+If cells are much smaller or larger than the preset expects, also set the diameter explicitly:
+```bash
+--cell-diameter 40           # adjust to match your cells in pixels
+```
+
 ### Multi-nucleated cells are being removed
 
 The nuclei filter is too strict.
@@ -146,9 +163,9 @@ For yeast without a nuclear channel, set both to 0:
 
 ### Too many false puncta (noise being detected)
 
-**Fix:** Increase the LoG sigma (less sensitive):
+**Fix:** Lower the LoG sigma (smaller sigma responds to smaller/sharper structures, making detection more selective):
 ```bash
---log-sigma 2.0        # default: 1.5
+--log-sigma 1.0        # default: 1.5
 ```
 
 Or increase minimum punctum area:
@@ -158,9 +175,9 @@ Or increase minimum punctum area:
 
 ### Real puncta are being missed
 
-**Fix:** Decrease the LoG sigma (more sensitive):
+**Fix:** Raise the LoG sigma (larger sigma responds to broader structures, making detection more permissive):
 ```bash
---log-sigma 1.0
+--log-sigma 2.0
 ```
 
 Or decrease minimum punctum area:
