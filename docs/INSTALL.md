@@ -102,7 +102,7 @@ mamba env create -f environment.yml
 ```bash
 conda create -n cellquant python=3.11 -y
 conda activate cellquant
-pip install cellpose scikit-image numpy pandas matplotlib scipy pyyaml tifffile
+pip install cellpose scikit-image "numpy>=1.24,<2.0" pandas matplotlib scipy pyyaml tifffile "opencv-python-headless<4.10"
 ```
 
 ## Step 5: Verify the installation
@@ -160,6 +160,13 @@ Your Python version might be too old. Check with `python --version`. You need 3.
 
 **Apple Silicon Mac: "BFloat16 is not supported on MPS" or "MPS GPU not supported"**
 This is handled automatically. The pipeline detects your Mac and uses CPU mode. You'll see a warning message — this is expected and everything will work correctly, just a bit slower.
+
+**"RuntimeError: Numpy is not available" or numpy 2.x errors**
+Numpy 2.0+ is incompatible with the versions of PyTorch and Cellpose that cellquant uses. This happens when `pip` upgrades numpy to 2.x during installation. Fix it by pinning numpy and opencv:
+```bash
+pip install "numpy>=1.24,<2.0" "opencv-python-headless<4.10"
+```
+> **zsh users (default Mac shell):** The quotes around the version specs are required — without them, `<` is interpreted as a shell redirect and the command will fail silently or create junk files.
 
 **"git: command not found" (Mac)**
 Run `xcode-select --install` to install developer tools, then try again.

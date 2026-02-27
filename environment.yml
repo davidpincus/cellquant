@@ -4,7 +4,7 @@ channels:
   - defaults
 dependencies:
   - python >=3.11
-  - numpy
+  - numpy >=1.24,<2.0
   - pandas
   - scipy
   - matplotlib
@@ -14,4 +14,5 @@ dependencies:
   - pip
   - pip:
     - cellpose >=4.0
+    - opencv-python-headless <4.10
     - pytest

@@ -46,6 +46,13 @@ from skimage import filters, measure, morphology, segmentation
 from skimage.transform import resize
 from cellpose import models
 
+if np.lib.NumpyVersion(np.__version__) >= "2.0.0":
+    sys.exit(
+        "ERROR: numpy >=2.0 detected — this is incompatible with PyTorch/Cellpose.\n"
+        "Fix:  pip install \"numpy>=1.24,<2.0\" \"opencv-python-headless<4.10\"\n"
+        "Then re-run cellquant."
+    )
+
 try:
     import torch
 except Exception:
