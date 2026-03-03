@@ -124,6 +124,10 @@ If you see an error about a missing package, install it:
 pip install [package-name]
 ```
 
+## Note: Cellpose model download
+
+The first time you process images, Cellpose will download its segmentation model (~500 MB). This is a one-time download that requires an internet connection. If you're on a slow connection, be patient — it will show a progress bar. The `--help` flag works offline, but actual image processing needs the model downloaded once.
+
 ## Step 6: Test with example data (recommended)
 
 Run a quick test to make sure everything works before using your own images:

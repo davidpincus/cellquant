@@ -46,17 +46,23 @@ from skimage import filters, measure, morphology, segmentation
 from skimage.transform import resize
 from cellpose import models
 
-if np.lib.NumpyVersion(np.__version__) >= "2.0.0":
-    sys.exit(
-        "ERROR: numpy >=2.0 detected — this is incompatible with PyTorch/Cellpose.\n"
-        "Fix:  pip install \"numpy>=1.24,<2.0\" \"opencv-python-headless<4.10\"\n"
-        "Then re-run cellquant."
-    )
-
 try:
     import torch
 except Exception:
     torch = None
+
+# ---------------------------------------------------------------------------
+# Startup dependency check
+# ---------------------------------------------------------------------------
+_np_ver = tuple(int(x) for x in np.__version__.split(".")[:2])
+_ski_ver = tuple(int(x) for x in __import__("skimage").__version__.split(".")[:2])
+if _np_ver >= (2, 0) or _ski_ver < (0, 24):
+    if _np_ver >= (2, 0):
+        print(f"ERROR: numpy {np.__version__} detected — cellquant requires numpy <2.0")
+    if _ski_ver < (0, 24):
+        print(f"ERROR: scikit-image {__import__('skimage').__version__} detected — cellquant requires >=0.24")
+    print('Fix: pip install "numpy>=1.24,<2.0" "scikit-image>=0.24" "opencv-python-headless<4.10"')
+    sys.exit(1)
 
 
 # ---------------------------------------------------------------------------
@@ -623,15 +629,17 @@ def safe_mean(im: np.ndarray, mask: np.ndarray) -> float:
 # Skimage compatibility wrappers (reused verbatim)
 # ---------------------------------------------------------------------------
 def remove_small_objects_compat(bw: np.ndarray, min_size: int) -> np.ndarray:
-    # max_size removes objects <= threshold; subtract 1 to match old min_size
-    # semantics (remove objects strictly < min_size, i.e. keep >= min_size)
-    return morphology.remove_small_objects(bw, max_size=min_size - 1)
+    try:
+        return morphology.remove_small_objects(bw, max_size=min_size - 1)
+    except TypeError:
+        return morphology.remove_small_objects(bw, min_size=min_size)
 
 
 def remove_small_holes_compat(bw: np.ndarray, area_threshold: int) -> np.ndarray:
-    # max_size removes holes <= threshold; old area_threshold removed holes
-    # strictly < threshold, so subtract 1 to preserve semantics
-    return morphology.remove_small_holes(bw, max_size=area_threshold - 1)
+    try:
+        return morphology.remove_small_holes(bw, max_size=area_threshold - 1)
+    except TypeError:
+        return morphology.remove_small_holes(bw, area_threshold=area_threshold)
 
 
 # ---------------------------------------------------------------------------

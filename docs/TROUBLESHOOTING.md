@@ -36,6 +36,24 @@ You need 3.11 or higher. Create a new environment with the right version:
 conda create -n cellquant python=3.11 -y
 ```
 
+### "TypeError: remove_small_objects() got an unexpected keyword argument 'max_size'"
+
+Your scikit-image version is too old. cellquant requires scikit-image >= 0.24.
+
+**Fix:**
+```bash
+pip install "scikit-image>=0.24"
+```
+
+### Connection timeout or hang on first run
+
+On the first real run (not `--help`), Cellpose needs to download its segmentation model (~500 MB). This requires an internet connection and may take several minutes on slow connections.
+
+**Fix:**
+- Check your internet connection.
+- If you're behind a proxy or firewall, ensure Python can reach the Cellpose model server.
+- Be patient — the download will show a progress bar. Once complete, subsequent runs work offline.
+
 ## Runtime errors
 
 ### "[warn] MPS GPU not supported by cpsam Transformer; using CPU"
