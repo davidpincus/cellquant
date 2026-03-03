@@ -32,19 +32,21 @@ from itertools import combinations
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-import pandas as pd
-import tifffile as tiff
+from cellpose import models  # must be first: PyTorch C-ext init order on macOS x86_64
+
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+import numpy as np
+import pandas as pd
+import tifffile as tiff
 import yaml
 
 from scipy.ndimage import distance_transform_edt
 from scipy.stats import mannwhitneyu
 from skimage import filters, measure, morphology, segmentation
 from skimage.transform import resize
-from cellpose import models
 
 try:
     import torch
