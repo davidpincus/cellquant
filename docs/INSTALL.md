@@ -102,8 +102,17 @@ mamba env create -f environment.yml
 ```bash
 conda create -n cellquant python=3.11 -y
 conda activate cellquant
-pip install cellpose scikit-image "numpy>=1.24,<2.0" pandas matplotlib scipy pyyaml tifffile "opencv-python-headless<4.10"
+pip install -r requirements.txt
 ```
+
+**No conda at all?** You can use a plain pip virtual environment:
+```bash
+python3.11 -m venv cellquant_env
+source cellquant_env/bin/activate       # Mac / Linux
+pip install -r requirements.txt
+```
+
+> **Important package names:** If you install dependencies one by one, note that the YAML library is `pip install pyyaml` (not `yaml`), and scikit-image is `pip install scikit-image` (not `skimage`). These naming mismatches are a common gotcha.
 
 ## Step 5: Verify the installation
 

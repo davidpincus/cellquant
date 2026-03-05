@@ -9,9 +9,13 @@
 ## Quick start
 
 ```bash
-# 1. Set up the environment
-conda env create -f environment.yml
+# 1. Set up the environment (pick one)
+conda env create -f environment.yml   # option A: conda (recommended)
 conda activate cellquant
+
+# OR: pip-only (no conda needed)
+python3.11 -m venv cellquant_env && source cellquant_env/bin/activate
+pip install -r requirements.txt
 
 # 2. Run on the example mammalian data
 python cellquant.py example_data/mammalian_SGs/ \
@@ -101,7 +105,7 @@ All preset values can be overridden: `--cell-type yeast --cell-diameter 50`
 - Cellpose 4.x
 - scikit-image, numpy, pandas, matplotlib, scipy, PyYAML, tifffile
 
-See [environment.yml](environment.yml) for exact versions.
+See [environment.yml](environment.yml) or [requirements.txt](requirements.txt) for exact versions.
 
 ## How to ask an AI for help
 

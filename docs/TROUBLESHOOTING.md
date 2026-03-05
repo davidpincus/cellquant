@@ -4,6 +4,24 @@ Common issues and how to fix them. If your problem isn't here, copy the error me
 
 ## Installation issues
 
+### "OMP: Error #15: Initializing libomp.dylib, but found libomp already initialized"
+
+This is a common macOS issue where multiple copies of the OpenMP runtime are pulled in by different packages (e.g., NumPy via MKL, PyTorch, system llvm-openmp). The pipeline now sets `KMP_DUPLICATE_LIB_OK=TRUE` automatically, so **updating to the latest cellquant.py should fix this**.
+
+If you still see the error (e.g., running an older copy of the script), set the environment variable yourself before running:
+```bash
+export KMP_DUPLICATE_LIB_OK=TRUE
+python cellquant.py --help
+```
+
+For a permanent fix, add that `export` line to your `~/.zshrc` (Mac) or `~/.bashrc` (Linux) file.
+
+**If you want to eliminate the duplicate entirely** (optional):
+```bash
+# In your active conda environment, replace MKL with a non-conflicting backend
+conda install nomkl
+```
+
 ### "conda: command not found"
 
 You either don't have conda installed, or it's not in your PATH.

@@ -32,6 +32,11 @@ from itertools import combinations
 from pathlib import Path
 from typing import Any
 
+# Suppress duplicate-libomp crash on macOS (conda/pip can install conflicting
+# copies via MKL, PyTorch, and system llvm-openmp).  Must be set before any
+# C-extension that links OpenMP is imported.
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+
 from cellpose import models  # must be first: PyTorch C-ext init order on macOS x86_64
 
 import matplotlib
