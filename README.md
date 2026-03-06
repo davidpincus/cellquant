@@ -1,4 +1,4 @@
-# A Vibecoder's Guide to Image Analysis (AVCGTIA)
+# Cellquant: a vibecoder's guide to image analysis
 
 **Quantitative fluorescence microscopy for biologists who don't code.**
 
@@ -121,7 +121,7 @@ The whole point of this tool is that you can use an AI assistant to figure out t
 
 If you use `cellquant` in your research, please cite:
 
-> Pincus D, Khokhani A, Ali A. A Vibecoder's Guide to Image Analysis: Accessible Quantitative Microscopy Through AI-Assisted Command-Line Pipelines. *Journal of Cell Biology*. 2026. [DOI]
+> Neferkara A, Ali A, Pincus D. Cellquant: a vibecoder's guide to image analysis. 2026. Submisssion and DOI pending.
 
 ## License
 
