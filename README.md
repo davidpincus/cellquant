@@ -4,8 +4,6 @@
 
 `cellquant.py` is a single-script pipeline for segmenting cells, counting puncta, measuring colocalization, and computing spatial relationships in multi-channel fluorescence images. You configure it entirely through command-line arguments — no Python editing required. Pair it with an AI assistant (Claude, ChatGPT, etc.) to translate your biology into the right command.
 
-📄 **Publication:** [link to JCB paper when published]
-
 ## Quick start
 
 ```bash
