@@ -22,6 +22,18 @@ For a permanent fix, add that `export` line to your `~/.zshrc` (Mac) or `~/.bash
 conda install nomkl
 ```
 
+### "numpy.core.multiarray failed to import"
+
+This error appears during `from cellpose import models` and looks like a cellpose bug, but it's actually a numpy version issue. Cellpose imports OpenCV (cv2), which tries to load numpy C extensions that changed in numpy 2.0 — the import chain is cellpose → cv2 → numpy C extensions → crash.
+
+**Fix:**
+```bash
+pip install "numpy>=1.24,<2.0" "opencv-python-headless<4.10"
+```
+> **zsh users (default Mac shell):** The quotes around the version specs are required.
+
+The latest version of cellquant detects numpy 2.x at startup and prints this fix automatically. If you're seeing this error, update your copy of `cellquant.py`.
+
 ### "conda: command not found"
 
 You either don't have conda installed, or it's not in your PATH.

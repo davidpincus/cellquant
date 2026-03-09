@@ -37,13 +37,26 @@ from typing import Any
 # C-extension that links OpenMP is imported.
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
-from cellpose import models  # must be first: PyTorch C-ext init order on macOS x86_64
+# ---------------------------------------------------------------------------
+# Numpy version gate — must run BEFORE importing cellpose, scipy, skimage, or
+# matplotlib, because those pull in C extensions (cv2, torch) that crash
+# immediately under numpy 2.x instead of producing a useful error message.
+# ---------------------------------------------------------------------------
+import numpy as np
+
+_np_ver = tuple(int(x) for x in np.__version__.split(".")[:2])
+if _np_ver >= (2, 0):
+    print(f"ERROR: numpy {np.__version__} detected — cellquant requires numpy <2.0")
+    print('Fix: pip install "numpy>=1.24,<2.0" "opencv-python-headless<4.10"')
+    print("     If you're on a Mac and using zsh, the quotes are required.")
+    sys.exit(1)
+
+from cellpose import models
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-import numpy as np
 import pandas as pd
 import tifffile as tiff
 import yaml
@@ -59,16 +72,12 @@ except Exception:
     torch = None
 
 # ---------------------------------------------------------------------------
-# Startup dependency check
+# Startup dependency check — scikit-image version
 # ---------------------------------------------------------------------------
-_np_ver = tuple(int(x) for x in np.__version__.split(".")[:2])
 _ski_ver = tuple(int(x) for x in __import__("skimage").__version__.split(".")[:2])
-if _np_ver >= (2, 0) or _ski_ver < (0, 24):
-    if _np_ver >= (2, 0):
-        print(f"ERROR: numpy {np.__version__} detected — cellquant requires numpy <2.0")
-    if _ski_ver < (0, 24):
-        print(f"ERROR: scikit-image {__import__('skimage').__version__} detected — cellquant requires >=0.24")
-    print('Fix: pip install "numpy>=1.24,<2.0" "scikit-image>=0.24" "opencv-python-headless<4.10"')
+if _ski_ver < (0, 24):
+    print(f"ERROR: scikit-image {__import__('skimage').__version__} detected — cellquant requires >=0.24")
+    print('Fix: pip install "scikit-image>=0.24"')
     sys.exit(1)
 
 
