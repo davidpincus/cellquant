@@ -18,19 +18,42 @@ If you'd rather not install WSL, the pipeline can work in PowerShell directly, b
 
 **Linux:** You probably already know how to do this.
 
-## Step 2: Install Miniforge (a Python distribution)
+## Step 2: Install a Python package manager
 
-You need Python and a package manager called `conda`. Miniforge is the easiest way to get both.
+You need a way to install Python and the libraries cellquant depends on. Pick one of the two paths below. Both work; **uv is recommended** because it's faster and `uv run cellquant.py` handles environment setup for you on every run.
+
+### Path A (recommended): uv
+
+uv is a single fast tool that manages Python versions and dependencies. Install it with one command:
+
+**Mac / Linux / WSL:**
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+**Windows PowerShell (if not using WSL):**
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+Close and reopen your terminal so the install registers. Verify:
+```bash
+uv --version
+```
+
+That's it — `uv` will fetch Python and all dependencies the first time you run cellquant (see Step 4, Path A). No environment activation needed in subsequent terminals.
+
+### Path B: conda (Miniforge)
+
+If you'd rather use conda (e.g., you already have it from another project), install Miniforge:
 
 **Check if you already have conda:**
 ```bash
 conda --version
 ```
-If this prints a version number (e.g., `conda 24.x.x`), skip to Step 3.
+If this prints a version number, skip to Step 3.
 
-**If you don't have conda, install Miniforge:**
-
-Go to https://github.com/conda-forge/miniforge#download and download the installer for your system. Then run it:
+Otherwise, go to https://github.com/conda-forge/miniforge#download and download the installer for your system. Then run it:
 
 **Mac (Apple Silicon — M1/M2/M3/M4):**
 ```bash
@@ -83,15 +106,38 @@ If it prints `cellquant.py`, you're in the right place. If it says "No such file
 
 > **Moving the folder:** You can move the `cellquant-main` folder anywhere on your computer (e.g., your home directory or a projects folder). Just make sure to use the correct path when running commands. For example, if you moved it to `~/cellquant-main/`, you'd run `python ~/cellquant-main/cellquant.py ...`
 
-## Step 4: Create the cellquant environment
+## Step 4: Install dependencies
 
-This creates an isolated Python environment with all the packages cellquant needs. It won't interfere with anything else on your computer.
+Pick the path that matches what you installed in Step 2. Both work; only one is needed.
+
+### Path A (recommended): uv
+
+cellquant has its dependencies declared inline at the top of `cellquant.py` (a PEP 723 script header). `uv` reads that header and sets everything up automatically the first time you run the script:
+
+```bash
+uv run cellquant.py --help
+```
+
+On the first run, uv will:
+1. Download a matching Python interpreter (~30 MB)
+2. Resolve and install numpy/scipy/scikit-image/matplotlib/pandas/PyYAML/tifffile/Cellpose/opencv/torch into an isolated cache (~3 GB)
+3. Print the cellquant help text
+
+Subsequent invocations reuse the cache and start in a fraction of a second. There is no environment to "activate" — `uv run cellquant.py …` always uses the right dependencies. If you prefer to materialize a project-local venv:
+
+```bash
+uv venv
+uv pip install -r requirements.txt
+source .venv/bin/activate
+```
+
+### Path B: conda
 
 ```bash
 conda env create -f environment.yml
 ```
 
-This will take 5–15 minutes depending on your internet connection — it's downloading Python, PyTorch, Cellpose, and other scientific computing packages. Let it finish.
+This will take 5–15 minutes depending on your internet connection — it's downloading Python, PyTorch, Cellpose, and other scientific computing packages.
 
 **If this fails**, try using `mamba` (a faster alternative that comes with Miniforge):
 ```bash
@@ -105,7 +151,8 @@ conda activate cellquant
 pip install -r requirements.txt
 ```
 
-**No conda at all?** You can use a plain pip virtual environment:
+### Path C: plain pip venv (fallback)
+
 ```bash
 python3.11 -m venv cellquant_env
 source cellquant_env/bin/activate       # Mac / Linux
@@ -116,19 +163,24 @@ pip install -r requirements.txt
 
 ## Step 5: Verify the installation
 
-Activate the environment and check that cellquant runs:
-
+**uv path:**
 ```bash
-conda activate cellquant
+uv run cellquant.py --help
+```
+
+**conda or pip-venv path:**
+```bash
+conda activate cellquant   # or: source cellquant_env/bin/activate
 python cellquant.py --help
 ```
 
-You should see a help message listing all available options. Two things to note:
+You should see a help message listing all available options. Notes:
 
-- Your terminal prompt should now show `(cellquant)` at the beginning. If it shows `(base)` or nothing, the environment isn't active — run `conda activate cellquant` again.
-- **Every time you open a new terminal** to use cellquant, you need to run `conda activate cellquant` first. This is easy to forget.
+- For conda/pip-venv paths, your terminal prompt should now show `(cellquant)` (or your venv name) at the beginning. If not, the environment isn't active — re-run the activate command.
+- **For conda/pip-venv, every new terminal you open** requires you to re-activate the environment first.
+- For `uv run`, there is no activate step — just call `uv run cellquant.py …` directly.
 
-If you see an error about a missing package, install it:
+If you see an error about a missing package, install it (pip or `uv add`):
 ```bash
 pip install [package-name]
 ```
@@ -137,7 +189,53 @@ pip install [package-name]
 
 The first time you process images, Cellpose will download its segmentation model (~500 MB). This is a one-time download that requires an internet connection. If you're on a slow connection, be patient — it will show a progress bar. The `--help` flag works offline, but actual image processing needs the model downloaded once.
 
-## Step 6: Test with example data (recommended)
+## Step 6: GPU setup (optional, recommended for 3D)
+
+cellquant auto-detects GPUs at startup and uses them when available. 2D analysis runs comfortably on CPU; 3D segmentation is roughly an order of magnitude faster on a discrete GPU and is the regime where setting one up matters most.
+
+Whatever you do here, cellquant always falls back to CPU when no GPU is available, so this step is never blocking.
+
+### Windows / WSL with NVIDIA CUDA
+
+We recommend CUDA 12.1 to match the PyTorch wheels Cellpose pins against. From your activated environment (or replace `pip` with `uv pip` if using `uv venv`):
+
+```bash
+pip install --upgrade --index-url https://download.pytorch.org/whl/cu121 torch
+```
+
+Verify CUDA is visible to PyTorch:
+```bash
+python -c "import torch; print('CUDA:', torch.cuda.is_available()); print('Device:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'none')"
+```
+
+If CUDA is available, cellquant will use it automatically. To force CPU, pass `--no-gpu`.
+
+If `torch.cuda.is_available()` returns `False` despite an NVIDIA card, the most common cause is a driver mismatch: install the NVIDIA driver for CUDA 12.x from https://developer.nvidia.com/cuda-12-1-0-download-archive, reboot, and reinstall the CUDA-flavored torch wheel.
+
+### Linux with NVIDIA CUDA
+
+Same as Windows above — install the CUDA-flavored torch wheel:
+```bash
+pip install --upgrade --index-url https://download.pytorch.org/whl/cu121 torch
+```
+
+Then verify with the same `torch.cuda.is_available()` check. The Linux NVIDIA driver typically comes from your distro's package manager (`apt install nvidia-driver-535` or similar). Reboot after driver installation.
+
+### Apple Silicon (M1/M2/M3/M4) — MPS
+
+PyTorch's Metal (MPS) backend is available on Apple Silicon, but Cellpose's cpsam Transformer ops are not yet fully supported under MPS. cellquant detects this at startup and **falls back to CPU automatically** — you'll see:
+
+```
+[warn] MPS GPU not supported by cpsam Transformer; using CPU
+```
+
+This is expected and not a bug; it's the right call until upstream MPS support catches up. Performance on Apple Silicon CPU is acceptable for 2D MIP analysis but slow for 3D — for production 3D work, prefer a Linux or Windows machine with an NVIDIA GPU.
+
+### No GPU (CPU only)
+
+2D analysis runs in seconds-to-minutes per image on CPU. 3D segmentation on CPU is several minutes per stack; tolerable for a few stacks at a time, painful for a dataset of dozens. If you only do 2D analysis, you can skip this step entirely.
+
+## Step 7: Test with example data (recommended)
 
 Run a quick test to make sure everything works before using your own images:
 

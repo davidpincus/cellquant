@@ -74,6 +74,52 @@ Created automatically if it doesn't exist.
 
 All preset values are overridable. For example, `--cell-type yeast --cell-diameter 50` uses the yeast preset but overrides the diameter.
 
+## 3D mode and voxel size
+
+cellquant auto-detects 2D vs 3D from input shape. 2D MIPs run the paper-validated pipeline; 3D z-stacks run a full volumetric pipeline with Cellpose-SAM 3D segmentation, anisotropic LoG puncta detection, and 3D-native Pearson/Manders colocalization.
+
+```bash
+--mode {auto, 2d, 3d}                 # Force pipeline mode (default: auto-detect)
+--voxel-size XY_UM Z_UM                # Voxel size in microns; read from OME/ImageJ metadata when absent
+--axes ZCYX                            # Override axis order for unusual TIFF layouts
+--seg-3d-method {stitch, full}         # 3D segmentation strategy
+--stitch-threshold 0.4                 # IoU threshold for Z-stitching
+--puncta-min-volume-vox 8              # 3D puncta volume floor (voxels)
+--puncta-max-volume-vox 3000           # 3D puncta volume ceiling (voxels)
+--min-cell-volume-vox 0                # 3D cell volume filter (voxels); 0 disables
+--max-cell-volume-vox 0
+--proximity-threshold-um 0.5           # 3D proximity threshold (microns; replaces --proximity-threshold)
+--project-z {max, sum, mean}           # Project 3D inputs to 2D before analysis (inside cellquant)
+```
+
+**Voxel size resolution order:** `--voxel-size XY Z` > OME-TIFF / ImageJ metadata > default 1.0 µm. If neither `--voxel-size` nor metadata supplies a real value and you're running in 3D mode, cellquant emits a loud warning at startup. All 3D metrics (`cell_volume_um3`, `nucleolar_sphericity`, anisotropic LoG, anisotropic distances) require a correct voxel size.
+
+**`--seg-3d-method stitch`** runs Cellpose 2D per-Z and stitches by IoU — faster and more permissive. **`--seg-3d-method full`** runs Cellpose with `do_3D=True` and anisotropy-aware processing — more conservative, typically better for densely-imaged stacks (e.g. yeast at 0.1 µm voxels). Yeast and bacteria presets default to `full`; mammalian defaults to `stitch`.
+
+**`--project-z`** is for users who have 3D acquisition but want 2D analysis (e.g. legacy pipelines, lower-spec hardware). When set on 3D input, cellquant projects each stack with the chosen reduction (max-intensity, sum, or mean) and runs the 2D pipeline. No external Fiji/napari step needed.
+
+## Input formats
+
+```bash
+# Always supported (via tifffile, paper-validated):
+.tif, .tiff (single- or multi-channel, 2D or 3D)
+OME-TIFF (metadata is read for voxel size, channel names)
+
+# Supported when bioio is installed:
+.nd2 (Nikon)
+.czi (Zeiss)
+.lif (Leica)
+.lsm (Zeiss legacy)
+```
+
+Install the non-tiff support:
+
+```bash
+pip install bioio bioio-nd2 bioio-czi bioio-lif bioio-ome-tiff
+```
+
+cellquant prefers `bioio` (the actively-maintained modular successor to aicsimageio); legacy `aicsimageio` is also accepted if already installed. cellquant raises a clear error if you pass a non-tiff file without a backend installed.
+
 ## Filename parsing
 
 ```bash
@@ -158,6 +204,43 @@ By default, the pipeline uses the `nucleus` channel for cell segmentation. If no
 
 `--puncta-compartment cytosol` restricts puncta detection to the cytoplasmic region (cell minus nucleus). Requires a `nucleus` channel. Falls back to `whole-cell` if no nucleus is available.
 
+### Per-channel puncta tuning
+
+When different channels in the same image need different puncta parameters (e.g. one diffuse-condensation channel with a low threshold and one tight-puncta channel with a high threshold), use these:
+
+```bash
+--puncta-rolling-ball G3BP1:25 PABPC1:0
+# Per-channel rolling-ball (white tophat) background subtraction radius.
+# Pixels in 2D, voxels in 3D. 0 disables for that channel.
+
+--puncta-params-per-channel G3BP1:log_sigma=2.5,puncta_threshold_method=triangle \
+                            PABPC1:log_sigma=1.8,puncta_min_area_px=4
+# Per-channel overrides. Each spec is CH:KEY=VAL,KEY=VAL,...
+# Supported keys:
+#   log_sigma, puncta_threshold_method, puncta_threshold_fixed,
+#   puncta_min_area_px, puncta_max_area_px,
+#   puncta_min_volume_vox, puncta_max_volume_vox,
+#   puncta_min_circularity, puncta_min_solidity,
+#   puncta_compartment
+```
+
+Per-channel overrides supersede the global flag values (`--log-sigma`, `--puncta-threshold-method`, etc.) for the named channel only; other channels still see the global values.
+
+### Fragmentation indices
+
+cellquant also computes two threshold-handling regimes for the same underlying puncta biology — useful when discrete-puncta detection is borderline:
+
+| Column | What it is |
+|---|---|
+| `{ch}_fragmentation_index_simple` | Connected components above LoG-Otsu within the cell |
+| `{ch}_fragmentation_index_persistence` | Threshold-free integral over a swept threshold range |
+
+```bash
+--fragmentation-thresholds 10   # Sweep depth for the persistence variant (0 disables)
+```
+
+See [CONCEPTS.md](CONCEPTS.md) for when each is preferable to `puncta_n`.
+
 ## Colocalization
 
 ```bash
@@ -166,6 +249,20 @@ By default, the pipeline uses the `nucleus` channel for cell segmentation. If no
 ```
 
 Computes Pearson's R and Manders' M1/M2 (with Costes automatic thresholding) for all pairs of `quantify` + `nucleolus` channels. Requires at least 2 eligible channels.
+
+In 3D mode cellquant computes Pearson and Manders natively over the full voxel distribution. In 2D mode it computes them on the input image as-is — **which is statistically unreliable when the input is a maximum intensity projection of an underlying z-stack**. Pearson's R and Manders' M1/M2 are defined on the 3D voxel distribution; collapsing Z first changes apparent overlap. cellquant prints a loud runtime warning when `--colocalization` is run in 2D mode for this reason. Either re-run on the source z-stacks (cellquant runs 3D colocalization natively) or treat MIP-based values as qualitative.
+
+See [CONCEPTS.md — Colocalization](CONCEPTS.md#colocalization-opt-in-via---colocalization) for a longer discussion.
+
+## Opt-in metrics
+
+Some specialized metrics are off by default because they're irrelevant to most workflows. Enable them per-flag:
+
+```bash
+--condensate-index              # p95/mean intensity ratio per channel per cell
+```
+
+The Condensate Index quantifies internal contrast within the cell — useful for studying phase-separating proteins. It was always-on in previous versions of cellquant; as of the 2026 revision it's opt-in so the default output stays focused on general-purpose metrics. See [CONCEPTS.md — Condensate index](CONCEPTS.md#condensate-index-opt-in-via---condensate-index) for interpretation.
 
 ## Nucleolar proximity
 
@@ -213,6 +310,20 @@ puncta_min_area_px: 5
 puncta_compartment: cytosol
 ```
 
+## GPU device
+
+cellquant auto-detects the runtime device and prints what it chose at startup (look for `[device]` in the log). The actual decision tree:
+
+- CUDA is available → use CUDA
+- Apple Silicon MPS is available → fall back to CPU (Cellpose's cpsam Transformer ops are not yet supported on MPS)
+- Otherwise → CPU
+
+```bash
+--no-gpu                        # Force CPU even if a GPU is available
+```
+
+For 3D workflows, a CUDA GPU is roughly an order of magnitude faster than CPU. See [INSTALL.md — GPU setup](INSTALL.md#step-6-gpu-setup-optional-recommended-for-3d) for driver and CUDA wheel installation per platform.
+
 ## Output files
 
 | File | Contents |
@@ -223,7 +334,8 @@ puncta_compartment: cytosol
 | `nucleolar_proximity.csv` | Per-cell puncta-to-nucleolus distances (if `--nucleolar-proximity`) |
 | `nucleolar_morphology.csv` | Per-cell nucleolar shape metrics (if any `nucleolus` channel) |
 | `config_used.yml` | Complete parameter record |
-| `qc/*.png` | QC overlay images |
-| `masks/*.tif` | Segmentation masks (unless `--no-save-masks`) |
+| `provenance.json` | cellquant version, exact CLI invocation, input file SHA-256 checksums, model checkpoint, dependency versions, OME channel names + voxel sizes (FAIR-aligned reproducibility record) |
+| `qc/*.png` | QC overlay images (2D: single panel; 3D: MIP + middle-Z side-by-side) |
+| `masks/*.tif` | Segmentation masks (unless `--no-save-masks`); 3D masks are multi-page TIFFs |
 | `plots/*.png` | Superplot visualizations (unless `--skip-plots`) |
 | `prism/*.csv` | Prism-ready data tables (unless `--skip-plots`) |

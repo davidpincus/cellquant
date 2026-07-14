@@ -4,16 +4,25 @@ Get results in 5 minutes. For detailed explanations, see the [full tutorials](TU
 
 ## Prerequisites
 
+Pick one (see [INSTALL.md](INSTALL.md) for details):
+
 ```bash
-conda activate cellquant    # or set up env first: see INSTALL.md
+# Recommended: install uv once, then no further setup is needed
+# (uv reads cellquant.py's PEP 723 header on every run)
+curl -LsSf https://astral.sh/uv/install.sh | sh      # Mac / Linux / WSL
+
+# OR: traditional conda environment
+conda activate cellquant
 ```
+
+Throughout this guide, `uv run cellquant.py …` and `python cellquant.py …` are interchangeable. Use whichever matches your setup.
 
 ## Try the included example data
 
 The repository ships a small subset of each dataset (2 images per dataset, cropped to 400×400 pixels) for quick testing. Run this to verify everything works:
 
 ```bash
-python cellquant.py example_data/mammalian_SGs/ \
+uv run cellquant.py example_data/mammalian_SGs/ \
   "1:DAPI:nucleus" "2:G3BP1:quantify" "3:PABPC1:quantify" \
   --cell-type mammalian \
   --out example_data/mammalian_SGs/test_output/ \

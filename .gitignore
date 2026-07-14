@@ -18,3 +18,16 @@ Luke_Hsf1/
 *.log
 *.docx
 *.ai
+
+# --- 2026 3D-era untracked artifacts (local only; never commit) ---
+# Large source-data directories (raw z-stacks, MIPs, .sld — ~100 GB)
+SG_zstacks/
+Tif6_Nsr1_Sis1_6hr/
+# 3D validation harness + its large run outputs (~8 GB)
+validation_3d/
+# Collaborator code snapshot (archive out-of-repo)
+cellquant_3d_Asif/
+# Manual working backups of cellquant.py
+*.bak
+# Private local project instructions
+CLAUDE.local.md

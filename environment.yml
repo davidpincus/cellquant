@@ -13,6 +13,19 @@ dependencies:
   - tifffile
   - pip
   - pip:
+    # Repeat the numpy pin in the pip section — pip's resolver doesn't
+    # honor the conda pin above, and cellpose's transitive deps will
+    # otherwise upgrade numpy to 2.x and break the cellquant startup gate.
+    - "numpy>=1.24,<2.0"
     - cellpose >=4.0
     - opencv-python-headless <4.10
     - pytest
+    # Multiformat input (ND2/CZI/LIF). bioio is the actively-maintained
+    # modular successor to aicsimageio; install only the format readers you
+    # need. Remove these lines if you only work with TIFF/OME-TIFF.
+    - bioio
+    - bioio-ome-tiff
+    - bioio-nd2
+    - bioio-czi
+    - bioio-lif
+    - bioio-tifffile

@@ -106,7 +106,7 @@ The pipeline looks for `.tif` and `.tiff` files in the specified directory.
 
 **Fix:**
 - Check the path is correct: `ls /your/path/`
-- Make sure files end in `.tif` or `.tiff` (not `.TIF`, `.nd2`, `.czi`, etc.)
+- Make sure files end in a supported, lower-case extension: `.tif`/`.tiff` (always), or `.nd2`/`.czi`/`.lif` when the `bioio` readers are installed (see [INSTALL.md](INSTALL.md)). Upper-case extensions like `.TIF` are not matched.
 - The pipeline does not search subdirectories
 
 ### "Channel spec must be 'position:Name:role'"

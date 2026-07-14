@@ -8,5 +8,12 @@ matplotlib
 scikit-image>=0.24
 pyyaml
 tifffile
+# Multiformat readers (ND2/CZI/LIF/OME-TIFF) — optional; remove if only using .tif
+bioio
+bioio-ome-tiff
+bioio-nd2
+bioio-czi
+bioio-lif
+bioio-tifffile
 opencv-python-headless<4.10
 pytest

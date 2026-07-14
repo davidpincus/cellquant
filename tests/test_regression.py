@@ -100,6 +100,7 @@ def yeast_output(tmp_path_factory):
             "--cell-type", "yeast",
             "--filename-pattern", "MAX_{condition}_rep{replicate}",
             "--colocalization",
+            "--allow-2d-colocalization",
             "--nucleolar-proximity", "Nsr1",
             "--puncta-channels", "Sis1", "Tif6",
             "--skip-plots",

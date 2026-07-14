@@ -3,6 +3,8 @@
 **Time:** ~30 minutes (plus ~5 minutes pipeline runtime)
 **What you'll learn:** How to run `cellquant`, interpret QC overlays, and understand the output files.
 
+> **A note before you start.** cellquant is not a substitute for understanding what the analysis is doing. The numbers in `cells.csv` are only meaningful if the segmentation is good, the metric matches your biology, and the conditions you're comparing are acquired the same way. Before trusting any number, read [CONCEPTS.md](CONCEPTS.md) for what each metric means and when it can mislead. Your AI assistant can help you assemble cellquant commands — it cannot tell you whether the *measurement* is the right one for your question. That part is yours.
+
 > **Using the example data subset?** The repository ships 2 cropped images (1 control, 1 arsenite) for quick testing. This tutorial describes the full dataset (9 images, 4–5 replicates per condition), but all commands work identically on the subset — you'll just see fewer cells and conditions in the output, and no p-values will appear (the statistical test requires ≥3 replicates per condition).
 
 ## The biology

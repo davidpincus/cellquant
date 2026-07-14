@@ -80,12 +80,14 @@ All preset values can be overridden: `--cell-type yeast --cell-diameter 50`
 |----------|--------|-------------------|
 | [Tutorial 1: Mammalian stress granules](docs/TUTORIAL_1_mammalian_SGs.md) | U2OS ± arsenite | Basics: install, run, interpret, statistics |
 | [Tutorial 2: Yeast temperature series](docs/TUTORIAL_2_yeast_temp.md) | Yeast 25–40°C | Advanced: colocalization, proximity, morphology |
+| [Tutorial 3: Four-condition dose-response](docs/TUTORIAL_3_four_condition.md) | Arsenite at 4 concentrations | Multi-condition designs, positive/negative controls, Bonferroni-corrected pairwise tests |
 
 ## Documentation
 
-- [Installation guide](docs/INSTALL.md) — step-by-step setup for Mac/Windows/Linux
+- [Installation guide](docs/INSTALL.md) — step-by-step setup for Mac/Windows/Linux (uv recommended, conda alternative)
 - [Quick start](docs/QUICKSTART.md) — run something in 5 minutes
 - [CLI reference](docs/CLI_REFERENCE.md) — every flag, explained
+- [Concepts](docs/CONCEPTS.md) — plain-language guide to what each measurement means and when it can mislead
 - [Troubleshooting](docs/TROUBLESHOOTING.md) — Apple Silicon, common errors, FAQ
 - [Philosophy](docs/PHILOSOPHY.md) — why we built it this way
 

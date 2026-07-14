@@ -4,6 +4,8 @@
 **Prerequisites:** Complete [Tutorial 1](TUTORIAL_1_mammalian_SGs.md) first.
 **What you'll learn:** Nucleolar segmentation, colocalization, spatial proximity, nucleolar morphology, multi-condition plotting.
 
+> **A note before you start.** cellquant is not a substitute for understanding what the analysis is doing. This tutorial uses colocalization (Pearson, Manders) and 3D-derived nucleolar morphology — both of which have failure modes that look like normal output. Before publishing a number from this pipeline, read the relevant sections of [CONCEPTS.md](CONCEPTS.md). In particular: if you run `--colocalization` on a MIP, the resulting Pearson and Manders values are statistically unreliable and cellquant will warn you. Re-run on the source z-stacks (cellquant runs 3D colocalization natively) when you can.
+
 > **Using the example data subset?** The repository ships 2 cropped images (25°C and 40°C only) for quick testing. This tutorial describes the full dataset (6 temperatures, 1 replicate each), but all commands work identically on the subset — you'll just see fewer conditions in the output and the trend lines won't be as informative with only 2 points. The cropped images also have fewer cells (~20–50 vs ~200–600 per image) and run much faster (~2 minutes total vs ~25 minutes).
 
 ## The biology
