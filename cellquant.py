@@ -52,7 +52,7 @@ Per-cell metrics common to both modes (see cells.csv):
 
 2D-only: cell_area, *_puncta_area, nucleolar_area/circularity/eccentricity/solidity
 3D-only: cell_volume_vox, cell_volume_um3, *_puncta_volume_um3,
-         nucleolar_volume_um3, nucleolar_sphericity, nucleolar_eq_diameter_um
+         nucleolar_volume_um3, nucleolar_eq_diameter_um
 """
 
 from __future__ import annotations
@@ -994,7 +994,7 @@ def parse_args() -> argparse.Namespace:
                          "peak integrated-signal Z, then segment/measure on the "
                          "cropped volume. Cells whose 3D mask touches the top or "
                          "bottom Z plane of the cropped volume are excluded (so "
-                         "truncated half-cells don't corrupt volume/sphericity). "
+                         "truncated half-cells don't corrupt volume). "
                          "Useful on CPU when one stack contains more axial range "
                          "than needed; the dropped tail cells are honest sampling, "
                          "not a measurement bias. 0 (default) = disabled.")
@@ -1932,14 +1932,6 @@ def segment_nucleoli(
     return combined
 
 
-def _sphericity_3d(volume_vox: int, surface_um2: float, voxel_um3: float) -> float:
-    """Sphericity = π^(1/3) · (6V)^(2/3) / S, V in µm³, S in µm². Sphere = 1."""
-    if surface_um2 <= 0 or volume_vox <= 0:
-        return float("nan")
-    V = volume_vox * voxel_um3
-    return float((np.pi ** (1.0 / 3.0)) * (6.0 * V) ** (2.0 / 3.0) / surface_um2)
-
-
 def compute_nucleolar_morphology(
     nucleolar_mask: np.ndarray,
     cell_mask: np.ndarray,
@@ -1950,8 +1942,7 @@ def compute_nucleolar_morphology(
     """Per-cell nucleolar morphometrics on the largest nucleolus.
 
     2D: area + circularity + solidity + eccentricity (paper-validated).
-    3D: volume (vox + µm³) + sphericity + equivalent diameter (µm) +
-        surface area (µm²) via marching cubes with anisotropic spacing.
+    3D: volume (vox + µm³) + equivalent diameter (µm) with anisotropic spacing.
     """
     is_3d = nucleolar_mask.ndim == 3
     rows: list[dict[str, Any]] = []
@@ -1985,8 +1976,6 @@ def compute_nucleolar_morphology(
                 row.update(
                     nucleolar_volume_vox=0,
                     nucleolar_volume_um3=0.0,
-                    nucleolar_surface_um2=float("nan"),
-                    nucleolar_sphericity=float("nan"),
                     nucleolar_eq_diameter_um=float("nan"),
                 )
             else:
@@ -2002,24 +1991,12 @@ def compute_nucleolar_morphology(
         largest = max(props, key=lambda p: p.area)
 
         if is_3d:
-            # Crop to bbox + 1-vox pad so marching cubes closes the surface
-            z0, y0, x0, z1, y1, x1 = largest.bbox
-            sub = (lab[z0:z1, y0:y1, x0:x1] == largest.label)
-            sub_pad = np.pad(sub, 1, mode="constant", constant_values=False)
-            try:
-                verts, faces, _, _ = measure.marching_cubes(
-                    sub_pad.astype(np.uint8), level=0.5, spacing=spacing)
-                surface_um2 = float(measure.mesh_surface_area(verts, faces))
-            except Exception:
-                surface_um2 = float("nan")
             vol_vox = int(largest.area)
             vol_um3 = vol_vox * voxel_um3
             eq_diam_um = (6.0 * vol_um3 / np.pi) ** (1.0 / 3.0)
             row.update(
                 nucleolar_volume_vox=vol_vox,
                 nucleolar_volume_um3=float(vol_um3),
-                nucleolar_surface_um2=surface_um2,
-                nucleolar_sphericity=_sphericity_3d(vol_vox, surface_um2, voxel_um3),
                 nucleolar_eq_diameter_um=float(eq_diam_um),
             )
         else:
@@ -2910,8 +2887,6 @@ def _build_superplot_metrics(
         if mode == "3d":
             metrics.extend([
                 ("nucleolar_volume_um3", "Nucleolar volume (µm³)", "Nucleolar volume"),
-                ("nucleolar_sphericity", "Nucleolar sphericity",
-                 "Nucleolar sphericity"),
                 ("nucleolar_eq_diameter_um", "Nucleolar eq. diameter (µm)",
                  "Nucleolar equivalent diameter"),
             ])
@@ -3527,7 +3502,7 @@ def main() -> None:
                       f"Z={cli_voxel[1]:.5f}) µm vs")
                 print(f"        metadata=(XY={ome_voxel[0]:.5f}, Z={ome_voxel[1]:.5f}) µm "
                       f"(ΔXY={dxy*100:.1f}%, ΔZ={dz*100:.1f}%).")
-                print("        3D volumes, sphericity, anisotropic LoG and distances all")
+                print("        3D volumes, anisotropic LoG and distances all")
                 print("        depend on this. Re-run with the correct --voxel-size, or")
                 print("        pass --override-metadata to force the CLI value.")
                 print(f"{bar}\n")
@@ -3551,7 +3526,7 @@ def main() -> None:
         elif cfg.get("assume_isotropic"):
             print("\n[warn] 3D mode with no voxel size from --voxel-size or metadata;")
             print("       assuming XY=Z=1.0 µm per --assume-isotropic. 3D physical-unit")
-            print("       metrics (volume µm³, sphericity, distances) will be in voxel")
+            print("       metrics (volume µm³, distances) will be in voxel")
             print("       units, not microns.\n")
             vprov["resolved_from"] = "assumed_isotropic"
         else:
@@ -3984,7 +3959,6 @@ def main() -> None:
             if is_3d:
                 morph_cols = [
                     "nucleolar_volume_vox", "nucleolar_volume_um3",
-                    "nucleolar_surface_um2", "nucleolar_sphericity",
                     "nucleolar_eq_diameter_um", "n_nucleoli",
                 ]
             else:

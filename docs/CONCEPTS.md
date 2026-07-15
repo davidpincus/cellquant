@@ -152,11 +152,11 @@ Pearson is also confounded by low signal-to-noise: noisy channels report low R e
 
 **When they can mislead** — when the marker bleeds into the nucleoplasm or when there are multiple nucleoli that get merged by the segmentation. Reported "circularity" of a multi-lobed nucleolus is geometric, not biological.
 
-### 3D: `nucleolar_volume_um3`, `nucleolar_sphericity`, `nucleolar_eq_diameter_um`
+### 3D: `nucleolar_volume_um3`, `nucleolar_eq_diameter_um`
 
-**What they are** — volume in cubic microns; sphericity (1 = perfect sphere, lower = more irregular surface) computed from a marching-cubes surface mesh; equivalent diameter (diameter of a sphere with the same volume).
+**What they are** — volume in cubic microns; equivalent diameter (diameter of a sphere with the same volume).
 
-**When they're reliable** — when voxel size is correct (set `--voxel-size XY Z` or rely on OME metadata), and when the nucleolar segmentation is clean. Sphericity is well-defined for closed surfaces.
+**When they're reliable** — when voxel size is correct (set `--voxel-size XY Z` or rely on OME metadata), and when the nucleolar segmentation is clean.
 
 **When they can mislead** — voxel-size mismatch is the most common failure: a value that looks normal but is in units of voxels rather than microns. cellquant warns if XY=Z=1.0 µm (i.e. no metadata and no `--voxel-size`); take that warning seriously.
 
