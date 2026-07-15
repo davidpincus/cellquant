@@ -2558,16 +2558,23 @@ def compute_nucleolar_proximity(
     image_name: str,
     channel_name: str,
     cfg: dict | None = None,
+    extra_thresholds: list[float] | None = None,
 ) -> pd.DataFrame:
     """Per-cell puncta distance to nearest nucleolar boundary.
 
     2D: Euclidean distance in pixels; threshold compared in pixels.
     3D: Anisotropic EDT with sampling=(z_um, y_um, x_um); distance is in
         microns; threshold (when invoked with cfg) is the µm threshold.
+
+    extra_thresholds (µm) add sensitivity columns fraction_proximal_<t>um
+    alongside the primary fraction_proximal, so robustness to the exact
+    threshold can be checked from a single run.
     """
     is_3d = puncta_mask.ndim == 3
     rows: list[dict[str, Any]] = []
     cfg = cfg or {}
+    extra_cols = [(float(t), f"fraction_proximal_{float(t):g}um")
+                  for t in (extra_thresholds or [])]
 
     if is_3d:
         spacing = (
@@ -2589,7 +2596,7 @@ def compute_nucleolar_proximity(
         punct_ids = punct_ids[punct_ids != 0]
         n_puncta = len(punct_ids)
         if n_puncta == 0:
-            rows.append({
+            row = {
                 "image": image_name,
                 "condition": metadata.get("condition", ""),
                 "replicate": metadata.get("replicate", ""),
@@ -2599,7 +2606,10 @@ def compute_nucleolar_proximity(
                 "mean_distance": np.nan,
                 "min_distance": np.nan,
                 "fraction_proximal": np.nan,
-            })
+            }
+            for _, col in extra_cols:
+                row[col] = np.nan
+            rows.append(row)
             continue
 
         distances = []
@@ -2610,7 +2620,7 @@ def compute_nucleolar_proximity(
             distances.append(d)
 
         distances_arr = np.array(distances)
-        rows.append({
+        row = {
             "image": image_name,
             "condition": metadata.get("condition", ""),
             "replicate": metadata.get("replicate", ""),
@@ -2620,7 +2630,10 @@ def compute_nucleolar_proximity(
             "mean_distance": float(distances_arr.mean()),
             "min_distance": float(distances_arr.min()),
             "fraction_proximal": float((distances_arr <= threshold).mean()),
-        })
+        }
+        for t, col in extra_cols:
+            row[col] = float((distances_arr <= t).mean())
+        rows.append(row)
 
     return pd.DataFrame(rows)
 
@@ -3643,8 +3656,17 @@ def main() -> None:
     is_3d = (cfg["mode"] == "3d")
     if is_3d:
         proximity_threshold = float(cfg.get("proximity_threshold_um", 0.5))
+        # Sensitivity band: also emit fraction_proximal at ±0.1 µm around the
+        # primary threshold (a robustness check, not a re-derivation of the
+        # threshold from pixels). One run yields all three columns.
+        proximity_extra_thresholds = [
+            round(t, 4)
+            for t in (proximity_threshold - 0.1, proximity_threshold + 0.1)
+            if t > 0 and abs(t - proximity_threshold) > 1e-9
+        ]
     else:
         proximity_threshold = float(cfg.get("proximity_threshold_px", 5))
+        proximity_extra_thresholds = []
 
     for i, p in enumerate(paths, 1):
         print(f"\n=== [{i}/{len(paths)}] {p.name} ===")
@@ -3849,7 +3871,8 @@ def main() -> None:
             for pch in puncta_chs:
                 prox_df = compute_nucleolar_proximity(
                     puncta_masks[pch["name"]], nucleolar_mask, cell_mask,
-                    proximity_threshold, meta, p.name, pch["name"], cfg=cfg)
+                    proximity_threshold, meta, p.name, pch["name"], cfg=cfg,
+                    extra_thresholds=proximity_extra_thresholds)
                 all_proximity.append(prox_df)
                 puncta_dist_colors[pch["name"]] = compute_puncta_distance_colors(
                     puncta_masks[pch["name"]], nucleolar_mask,
@@ -3938,9 +3961,11 @@ def main() -> None:
 
         # Pivot proximity metrics into cells_out
         if not prox_out.empty and not cells_out.empty:
+            extra_prox_cols = sorted(
+                c for c in prox_out.columns if c.startswith("fraction_proximal_"))
             for ch_name in prox_out["channel"].unique():
                 ch_df = prox_out[prox_out["channel"] == ch_name]
-                for metric_col in ["mean_distance", "fraction_proximal"]:
+                for metric_col in ["mean_distance", "fraction_proximal"] + extra_prox_cols:
                     pivot_col = f"{ch_name}_{metric_col}"
                     merge_df = ch_df[["image", "cell_id", metric_col]].rename(
                         columns={metric_col: pivot_col})
