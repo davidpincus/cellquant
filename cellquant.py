@@ -1819,10 +1819,13 @@ CELL_SHAPE_EXPECT: dict[Any, float] = {
 
 
 def warn_cell_shape(cell_mask: np.ndarray, cfg: dict) -> None:
-    """Warn when segmented cells are implausibly shaped for the cell type, or
-    (3D) systematically elongated along the imaging Z axis — a signature of a
-    wrong voxel size / anisotropy or axial over-segmentation rather than
-    biology. Read-only heuristic; never raises."""
+    """Warn when segmented cells are implausibly shaped. In 3D this flags two
+    specific failure modes — cells flattened along Z with their long axis in the
+    imaging plane (the fingerprint of a wrong --voxel-size / anisotropy), and
+    gross elongation in any orientation — while deliberately staying silent on
+    the mild prolate-along-Z elongation caused by optical axial PSF, which is
+    expected and not a segmentation error. In 2D it flags an axis ratio beyond
+    the cell-type norm. Read-only heuristic; never raises."""
     try:
         is_3d = cell_mask.ndim == 3
         ct = cfg.get("cell_type")
@@ -1853,12 +1856,33 @@ def warn_cell_shape(cell_mask: np.ndarray, cfg: dict) -> None:
         if len(ratios) < 5:
             return
         med = float(np.median(ratios))
-        if is_3d and zcos and med > 1.3 and float(np.median(zcos)) > 0.7:
-            print(f"[warn] cell shape: cells are systematically elongated along the "
-                  f"imaging Z axis (median axis ratio {med:.2f}, long-axis "
-                  f"|cos Z|={float(np.median(zcos)):.2f}). This usually means a wrong "
-                  f"--voxel-size / anisotropy or axial over-segmentation "
-                  f"(try --seg-3d-method full), not biology.")
+        if is_3d:
+            # Two 3D signatures, measured on the yeast calibration image
+            # (25C_series1_rep1, 391 cells, stitch@0.65):
+            #   correct voxel 0.10571/0.23 (aniso 2.18): ratio 1.66, |cosZ| 0.98
+            #       -> mild PROLATE-along-Z. This is optical axial PSF, is
+            #          expected, and must NOT warn.
+            #   wrong voxel   0.094/0.10   (aniso 1.06): ratio 1.49, |cosZ| 0.15
+            #       -> OBLATE, long axis in the imaging plane: the fingerprint of
+            #          an under-scaled Z / wrong --voxel-size anisotropy.
+            # So flag oblate cells (low |cosZ|) at a ratio gate (1.3) below the
+            # real bug's 1.49, and separately flag gross elongation in any
+            # orientation. The orientation flip (|cosZ|), not the ratio
+            # magnitude, is what distinguishes the bug from benign PSF.
+            medcos = float(np.median(zcos)) if zcos else 1.0
+            if med > 1.3 and medcos < 0.3:
+                print(f"[warn] cell shape: cells look flattened along Z (median axis "
+                      f"ratio {med:.2f}, long-axis |cos Z|={medcos:.2f} — long axis "
+                      f"lies in the imaging plane). This is the signature of an "
+                      f"under-scaled Z / wrong voxel-size anisotropy (Z spacing too "
+                      f"small), not biology. Double-check --voxel-size XY Z against "
+                      f"the OME/ImageJ metadata.")
+            elif med > 2.5:
+                print(f"[warn] cell shape: cells are grossly elongated (median axis "
+                      f"ratio {med:.2f}, long-axis |cos Z|={medcos:.2f}). Real cells "
+                      f"seldom exceed ~2.5x; check segmentation, --stitch-threshold, "
+                      f"and the cell-type preset. (Mild ~1.5-1.7x prolate-along-Z "
+                      f"elongation is expected optical PSF and is not flagged.)")
         elif med > max_ratio:
             print(f"[warn] cell shape: median cell axis ratio {med:.2f} exceeds the "
                   f"~{max_ratio:.1f} expected for cell-type '{ct}'. Check "
