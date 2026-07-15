@@ -221,9 +221,14 @@ CELL_TYPE_PRESETS: dict[str, dict[str, Any]] = {
             # (sphere of radius ~0.9 µm → ~3000 vox at 0.1 µm voxels).
             "puncta_min_volume_vox": 4,
             "puncta_max_volume_vox": 3000,
-            # Full 3D Cellpose works well on small yeast at dense Z sampling.
-            "seg_3d_method": "full",
-            "stitch_threshold": 0.4,
+            # Default to slice-stitching with a strict IoU threshold (0.65).
+            # Calibration on 25C_series1_rep1 (native voxel 0.10571/0.23 µm)
+            # showed full do_3D does NOT round cells (the residual axial
+            # elongation is optical PSF, not a segmentation artifact) yet costs
+            # ~2.3x more wall-clock; a stricter stitch threshold links less
+            # aggressively across Z and recovers more cells at stitch's cost.
+            "seg_3d_method": "stitch",
+            "stitch_threshold": 0.65,
             "nucleolar_opening_radius": 1,
             "nucleolar_min_volume_vox": 10,
         },

@@ -94,7 +94,7 @@ cellquant auto-detects 2D vs 3D from input shape. 2D MIPs run the paper-validate
 
 **Voxel size resolution order:** `--voxel-size XY Z` > OME-TIFF / ImageJ metadata > default 1.0 µm. If neither `--voxel-size` nor metadata supplies a real value and you're running in 3D mode, cellquant emits a loud warning at startup. All 3D metrics (`cell_volume_um3`, `nucleolar_sphericity`, anisotropic LoG, anisotropic distances) require a correct voxel size.
 
-**`--seg-3d-method stitch`** runs Cellpose 2D per-Z and stitches by IoU — faster and more permissive. **`--seg-3d-method full`** runs Cellpose with `do_3D=True` and anisotropy-aware processing — more conservative, typically better for densely-imaged stacks (e.g. yeast at 0.1 µm voxels). Yeast and bacteria presets default to `full`; mammalian defaults to `stitch`.
+**`--seg-3d-method stitch`** runs Cellpose 2D per-Z and stitches by IoU; a higher `--stitch-threshold` links less aggressively across Z (fewer over-extended cells). **`--seg-3d-method full`** runs Cellpose with `do_3D=True` and anisotropy-aware processing — more conservative but ~2.3× slower, and on our yeast calibration it did not measurably improve cell roundness (the residual axial elongation is optical PSF, not a segmentation artifact). All cell-type presets therefore default to `stitch`: yeast uses a strict `--stitch-threshold 0.65`; mammalian and bacteria use 0.4.
 
 **`--project-z`** is for users who have 3D acquisition but want 2D analysis (e.g. legacy pipelines, lower-spec hardware). When set on 3D input, cellquant projects each stack with the chosen reduction (max-intensity, sum, or mean) and runs the 2D pipeline. No external Fiji/napari step needed.
 
