@@ -2589,13 +2589,54 @@ def compute_nucleolar_proximity(
     cell_ids = np.unique(cell_mask)
     cell_ids = cell_ids[cell_ids != 0]
 
+    # --- Vectorized punctum-centroid distances -----------------------------
+    # One pass over the nonzero puncta voxels replaces the old double loop
+    # (re-scanning the whole volume once per cell and again per punctum).
+    #
+    # Voxels are grouped by (cell_id, punctum_id) *pairs*, not by punctum alone:
+    # a punctum straddling two cells therefore contributes a separate centroid
+    # to each cell — exactly what the old `puncta_mask * (cell_mask == cid)`
+    # masking computed. Collapsing to punctum_id would change the result.
+    #
+    # This is bit-identical to the old int(round(coords.mean())) per punctum.
+    # The reason is exact arithmetic, NOT any traversal-order guarantee:
+    # voxel coordinates are integer-valued in float64, and a per-punctum
+    # coordinate sum is ~1e7 at most (a few thousand voxels times indices of a
+    # few thousand), far below 2**53. Below that bound every partial sum is
+    # exactly representable, so np.mean's pairwise summation and np.bincount's
+    # sequential accumulation yield the identical float64 sum regardless of the
+    # order voxels are visited. The divide by the (identical) voxel count is a
+    # single IEEE op on identical operands, and Python's round() and np.rint()
+    # both round half to even — so the rounded integer centroid is the same.
+    ndim = puncta_mask.ndim
+    vox = np.nonzero(puncta_mask)
+    pid_all = puncta_mask[vox].astype(np.int64)
+    cid_all = cell_mask[vox].astype(np.int64)
+    keep = cid_all != 0
+    coords = np.stack([axis[keep] for axis in vox], axis=1).astype(np.int64)
+    keys = np.stack([cid_all[keep], pid_all[keep]], axis=1)
+    uniq, inv = np.unique(keys, axis=0, return_inverse=True)
+    inv = inv.ravel()
+    counts = np.bincount(inv, minlength=len(uniq))
+    centroid = np.empty((len(uniq), ndim), dtype=np.int64)
+    for a in range(ndim):
+        axis_sum = np.bincount(inv, weights=coords[:, a], minlength=len(uniq))
+        centroid[:, a] = np.rint(axis_sum / counts).astype(np.int64)
+    if len(uniq):
+        group_dist = dist_field[tuple(centroid[:, a] for a in range(ndim))]
+    else:
+        group_dist = np.empty(0, dtype=dist_field.dtype)
+
+    # uniq is lexicographically sorted by (cell_id, punctum_id), so iterating
+    # groups in order and appending preserves the ascending-punctum-id order
+    # the old np.unique(punct_ids) inner loop produced for each cell.
+    dists_by_cell: dict[int, list[float]] = {}
+    for g in range(len(uniq)):
+        dists_by_cell.setdefault(int(uniq[g, 0]), []).append(float(group_dist[g]))
+
     for cid in cell_ids:
-        cell_bin = (cell_mask == cid)
-        puncta_in_cell = puncta_mask * cell_bin
-        punct_ids = np.unique(puncta_in_cell)
-        punct_ids = punct_ids[punct_ids != 0]
-        n_puncta = len(punct_ids)
-        if n_puncta == 0:
+        distances = dists_by_cell.get(int(cid))
+        if not distances:
             row = {
                 "image": image_name,
                 "condition": metadata.get("condition", ""),
@@ -2612,13 +2653,6 @@ def compute_nucleolar_proximity(
             rows.append(row)
             continue
 
-        distances = []
-        for pid in punct_ids:
-            coords = np.where(puncta_in_cell == pid)
-            centroid = tuple(int(round(c.mean())) for c in coords)
-            d = float(dist_field[centroid])
-            distances.append(d)
-
         distances_arr = np.array(distances)
         row = {
             "image": image_name,
@@ -2626,7 +2660,7 @@ def compute_nucleolar_proximity(
             "replicate": metadata.get("replicate", ""),
             "cell_id": int(cid),
             "channel": channel_name,
-            "n_puncta": n_puncta,
+            "n_puncta": len(distances),
             "mean_distance": float(distances_arr.mean()),
             "min_distance": float(distances_arr.min()),
             "fraction_proximal": float((distances_arr <= threshold).mean()),
