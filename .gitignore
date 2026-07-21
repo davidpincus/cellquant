@@ -23,8 +23,28 @@ Luke_Hsf1/
 # Large source-data directories (raw z-stacks, MIPs, .sld — ~100 GB)
 SG_zstacks/
 Tif6_Nsr1_Sis1_6hr/
-# 3D validation harness + its large run outputs (~8 GB)
-validation_3d/
+# 3D validation harness: track the reproducibility CODE (.py/.sbatch/.md) but
+# ignore the large, machine-specific run outputs, logs, staging/scratch dirs,
+# and tool binaries. (Was a blanket `validation_3d/` ignore.)
+validation_3d/**
+!validation_3d/**/
+!validation_3d/**/*.py
+!validation_3d/**/*.sbatch
+!validation_3d/**/*.md
+!validation_3d/paths.local.json.example
+# Output/scratch dirs stay fully ignored even if they hold code-suffixed files
+validation_3d/outputs*/**
+validation_3d/logs_*/**
+validation_3d/_staging*/**
+validation_3d/_smoke*/**
+validation_3d/synthetic_sphericity/**
+validation_3d/bin/**
+validation_3d/.claude/**
+# Local machine-specific path override (never commit)
+validation_3d/paths.local.json
+.env
+# Extracted Midway3 analysis output tarballs (local only; never commit)
+jcb_revision_midway3_cellquant_analysis/
 # Collaborator code snapshot (archive out-of-repo)
 cellquant_3d_Asif/
 # Manual working backups of cellquant.py
