@@ -1,0 +1,4 @@
+{
+  "__comment__": "Copy this file to paths.local.json (which is gitignored) ONLY if your data does not sit alongside the harness. project_root must be the directory that contains cellquant.py, validation_3d/, and the data dirs (SG_zstacks/, Tif6_Nsr1_Sis1_6hr/). Precedence: $CELLQUANT_VALIDATION_ROOT overrides this file, which overrides the repo-relative default (the parent of validation_3d/). The default already works on both the Mac and Midway3 when data is colocated with the harness, so most setups need no file at all.",
+  "project_root": "/absolute/path/to/AVCGTIA_Neferkara_Ali_Pincus"
+}
