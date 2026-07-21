@@ -3494,7 +3494,19 @@ def main() -> None:
     # Find images
     paths = find_images(img_dir, cfg)
     if not paths:
-        raise SystemExit(f"No TIFFs found in {img_dir}")
+        # An empty glob is a hard error, never success: name the pattern that
+        # matched nothing so a mistyped --filename-pattern or wrong directory
+        # is obvious instead of silently producing zero output.
+        file_pattern = cfg.get("file_pattern")
+        if file_pattern:
+            glob_desc = f"glob '{file_pattern}'"
+        else:
+            exts = cfg.get("exts", [".tif", ".tiff"])
+            glob_desc = "extensions " + ", ".join(f"'*{e}'" for e in exts)
+        raise SystemExit(
+            f"No input images found: {glob_desc} matched no files in "
+            f"{img_dir}. Check the images directory and --filename-pattern."
+        )
 
     # ----- Mode detection (auto from first file unless user forced) -----
     requested_mode = cfg.get("mode", "auto")
