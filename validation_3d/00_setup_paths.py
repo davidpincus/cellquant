@@ -184,28 +184,53 @@ PER_IMAGE_TIMEOUT_SEC = 60 * 60 * 12
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+def _glob_required(directory: Path | None, pattern: str, desc: str) -> list[Path]:
+    """Glob ``pattern`` in ``directory``, failing LOUDLY if the directory is
+    missing or nothing matches.
+
+    An empty result from these input-listing helpers always means a
+    misconfigured data path, never a valid "no work to do" state. Returning
+    ``[]`` silently once let a validation run process 0 of 30 images and still
+    exit 0 — a whole axis lost, caught only by counting files on disk. Raise
+    instead, naming the glob that matched nothing.
+    """
+    if directory is None:
+        raise FileNotFoundError(
+            f"{desc}: input directory is not configured (None); "
+            f"cannot glob '{pattern}'.")
+    if not directory.is_dir():
+        raise FileNotFoundError(
+            f"{desc}: input directory does not exist: {directory}")
+    matches = sorted(directory.glob(pattern))
+    if not matches:
+        raise FileNotFoundError(
+            f"{desc}: glob '{pattern}' matched no files in {directory}")
+    return matches
+
+
 def list_mammalian_zstacks() -> list[Path]:
-    return sorted(MAMMALIAN_ZSTACK_DIR.glob("*.tif"))
+    return _glob_required(MAMMALIAN_ZSTACK_DIR, "*.tif", "mammalian z-stacks")
 
 
 def list_mammalian_mips() -> list[Path]:
-    return sorted(MAMMALIAN_MIP_DIR.glob("MAX_*.tif"))
+    return _glob_required(MAMMALIAN_MIP_DIR, "MAX_*.tif", "mammalian MIPs")
 
 
 def list_yeast_sld_files() -> list[Path]:
+    # Raw acquisition .sld may legitimately be absent after conversion to TIFF,
+    # so this one stays tolerant of an empty result (it is a convert-if-present
+    # probe, not a validation input list).
     return sorted(YEAST_ZSTACK_DIR.glob("*.sld"))
 
 
 def list_yeast_zstacks_all() -> list[Path]:
     """All 86 exported yeast z-stacks (full temperature series)."""
-    return sorted(YEAST_ZSTACK_DIR.glob("*.tif"))
+    return _glob_required(YEAST_ZSTACK_DIR, "*.tif", "yeast z-stacks")
 
 
 def list_yeast_mips() -> list[Path]:
     """The 30 published yeast MIP TIFFs (manuscript subset)."""
-    if YEAST_MIP_DIR is None:
-        return []
-    return sorted(YEAST_MIP_DIR.glob("*.tif"))
+    return _glob_required(YEAST_MIP_DIR, "*.tif", "yeast MIPs")
 
 
 def replicate_id_from_zstack(path: Path) -> str:
