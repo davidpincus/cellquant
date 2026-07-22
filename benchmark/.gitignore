@@ -1,0 +1,25 @@
+# Benchmark OUTPUTS — data, never commit. Versioning the *code* is the point,
+# not the derived data.
+# Commit only: build_cppipe.py, cellprofiler_hct116.cppipe, compare_tools.py,
+# run_benchmark.sh, README.md, and this file.
+
+# Tool run outputs
+out_cq/
+out_cp/
+cp_input/
+_smoke_cq_in/
+
+# Comparison artifacts
+compare_out/
+matches.csv
+benchmark_summary.csv
+benchmark_summary.json
+
+# Loose data/figure artifacts anywhere under benchmark/
+*.tif
+*.tiff
+*.png
+*.pdf
+*.log
+__pycache__/
+*.pyc
