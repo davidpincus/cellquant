@@ -1340,6 +1340,74 @@ def _read_ome_voxel_size(path: Path) -> tuple[float, float] | None:
     return None
 
 
+def _read_pixel_size_xy_um(path: Path) -> float | None:
+    """Lateral pixel size in µm from file metadata, independent of any Z spacing.
+
+    `_read_ome_voxel_size` deliberately requires BOTH a lateral and an axial
+    value, because a 3D analysis needs both. A two-dimensional projection has no
+    Z spacing, so that reader returns None for it — and every micron-denominated
+    parameter in 2D then fell back to an EDT sampling of 1.0, silently
+    reinterpreting microns as pixels. Any value below 1.0 became a no-op: the
+    mammalian preset's 0.5 µm puncta-compartment erosion never removed a single
+    pixel in a default 2D run.
+    """
+    if _is_aics_format(path):
+        if not HAS_AICSIMAGEIO:
+            return None
+        try:
+            pps = _MultiformatReader(str(path)).physical_pixel_sizes
+            return float(pps.X) if pps.X else None
+        except Exception:
+            return None
+    try:
+        with tiff.TiffFile(str(path)) as tf:
+            if tf.is_ome and tf.ome_metadata:
+                from xml.etree import ElementTree as ET
+                root = ET.fromstring(tf.ome_metadata)
+                ns = ({"o": root.tag.split("}")[0].strip("{")}
+                      if "}" in root.tag else {})
+                pix = (root.find(".//o:Pixels", ns) if ns
+                       else root.find(".//Pixels"))
+                if pix is not None and pix.attrib.get("PhysicalSizeX"):
+                    return float(pix.attrib["PhysicalSizeX"])
+            xres = tf.pages[0].tags.get("XResolution")
+            if xres is not None and xres.value[0] != 0:
+                unit = tf.pages[0].tags.get("ResolutionUnit")
+                ij_unit = (tf.imagej_metadata or {}).get("unit", "") if tf.is_imagej else ""
+                # Only trust the resolution tag when it is expressed in microns.
+                if ij_unit in ("micron", "um", "µm") or (
+                        unit is not None and int(unit.value) == 1 and tf.is_imagej):
+                    return float(xres.value[1] / xres.value[0])
+    except Exception:
+        return None
+    return None
+
+
+def _um_denominated_2d_params(cfg: dict) -> list[tuple[str, str, bool]]:
+    """Active parameters expressed in microns, which without a pixel size would
+    be silently reinterpreted as pixels in 2D.
+
+    Returns (label, cfg_key, user_asserted). The distinction matters: a value the
+    user typed is an assertion about physical units that cannot be honoured, so
+    the run should refuse. A value that merely came from a cell-type preset
+    should not abort a first run on data that carries no resolution metadata —
+    including this tool's own example images — but it must not be applied
+    silently either.
+    """
+    cli_keys = cfg.get("_cli_provided_keys") or set()
+    active: list[tuple[str, str, bool]] = []
+    if float(cfg.get("puncta_compartment_erode_um", 0.0) or 0.0) > 0:
+        active.append(("--puncta-compartment-erode-um",
+                       "puncta_compartment_erode_um",
+                       "puncta_compartment_erode_um" in cli_keys))
+    for _name, d in (cfg.get("compartments") or {}).items():
+        if any(pad for _, _, pad in d["terms"]):
+            # A '~' pad is always something the user wrote by hand.
+            active.append((f"--compartment \"{d['raw']}\" (uses a '~' pad)",
+                           "compartments", True))
+    return active
+
+
 def _read_ome_channel_names(path: Path) -> list[str]:
     """Try to read channel names from file metadata.
 
@@ -1943,16 +2011,9 @@ def validate_compartment_config(cfg: dict, channels: list[dict]) -> None:
                 f"        Define it first with "
                 f"--compartment \"{val} = cell - nucleus\".")
 
-    needs_voxel = any(
-        pad for d in defs.values() for _, _, pad in d["terms"] if pad)
-    if needs_voxel and cfg.get("mode") != "3d":
-        xy = float(cfg.get("voxel_size_xy_um", 1.0) or 1.0)
-        if xy == 1.0:
-            raise SystemExit(
-                "[error] a --compartment expression uses a '~' pad in microns, but "
-                "no pixel size is available in 2D mode, so the pad would silently "
-                "be applied in PIXELS.\n"
-                "        Pass --voxel-size XY_UM, or drop the '~' pad.")
+    # Micron-denominated pads without a pixel size are caught earlier, in main(),
+    # by _um_denominated_2d_params — after the 2D pixel size has been resolved
+    # from file metadata, so a file that carries its resolution is not refused.
     for nm, d in defs.items():
         for _, atom, _ in d["terms"]:
             if atom.startswith("exclusion("):
@@ -3817,13 +3878,6 @@ def main() -> None:
         cfg["puncta_compartment"] = "whole-cell"
         compartment = "whole-cell"
 
-    # Resolve every compartment reference before any segmentation runs. A typo
-    # used to surface deep in the per-image loop, after Cellpose had already
-    # spent minutes on the first image.
-    validate_compartment_config(cfg, channels)
-    if cfg.get("compartments"):
-        print("Compartments: " + "; ".join(
-            d["raw"] for d in cfg["compartments"].values()))
 
     if not has_nuclei and int(cfg.get("keep_min_nuclei", 0)) > 0:
         print("[warn] No nucleus channel but keep_min_nuclei > 0 — "
@@ -3978,6 +4032,47 @@ def main() -> None:
         apply_3d_preset_overrides(cfg)
     else:
         cfg.pop("_preset_3d_overrides", None)
+        # 2D lateral pixel size. The voxel ladder above runs only in 3D, so in
+        # 2D cfg["voxel_size_xy_um"] stayed at its 1.0 default and every
+        # micron-denominated parameter was silently measured in pixels instead.
+        if not _user_supplied_voxel(cfg):
+            px = _read_pixel_size_xy_um(paths[0])
+            if px:
+                cfg["voxel_size_xy_um"] = px
+                print(f"Pixel size: {px:.4f} \u00b5m (from file metadata)")
+        um_params = _um_denominated_2d_params(cfg)
+        if um_params and float(cfg.get("voxel_size_xy_um", 1.0) or 1.0) == 1.0:
+            asserted = [u for u in um_params if u[2]]
+            bar = "!" * 78
+            if asserted:
+                print(f"\n{bar}")
+                print("[error] you supplied these values in microns, but no pixel size")
+                print("        is available, so they would be applied in PIXELS:")
+                for label, _, _ in asserted:
+                    print(f"          {label}")
+                print("        Pass --voxel-size XY_UM, or re-export the images with")
+                print("        resolution metadata. (A micron value below 1.0 applied")
+                print("        as pixels does nothing at all.)")
+                print(f"{bar}\n")
+                sys.exit(1)
+            # Preset-supplied only: disable rather than apply as pixels, and say so.
+            for label, key, _ in um_params:
+                print(f"[warn] {label} = {cfg.get(key)} µm comes from the "
+                      f"'{cfg.get('cell_type')}' preset, but this 2D input carries "
+                      f"no pixel size,")
+                print(f"       so the value cannot be interpreted in microns. It is "
+                      f"being SKIPPED, not applied as pixels.")
+                print(f"       Pass --voxel-size XY_UM to enable it.")
+                if key == "puncta_compartment_erode_um":
+                    cfg[key] = 0.0
+
+    # Resolve every compartment reference now that mode and the pixel size are
+    # final, and before any segmentation runs. A typo used to surface deep in
+    # the per-image loop, after Cellpose had already spent minutes.
+    validate_compartment_config(cfg, channels)
+    if cfg.get("compartments"):
+        print("Compartments: " + "; ".join(
+            d["raw"] for d in cfg["compartments"].values()))
 
     # Loud warning when running colocalization on 2D MIP input. Pearson's R
     # and Manders' coefficients are defined on the full 3D voxel distribution;
