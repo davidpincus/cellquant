@@ -675,10 +675,14 @@ def build_config(args: argparse.Namespace) -> dict[str, Any]:
             cfg["voxel_size_z_um"] = float(args.voxel_size[1])
         else:
             raise ValueError("--voxel-size takes 1 (2D) or 2 (3D) values")
-        # Explicit marker that the user supplied a voxel size. Downstream code
-        # used to infer this by comparing against (1.0, 1.0), which silently
-        # misreads a legitimate 1 µm isotropic dataset as "not supplied".
-        cfg["_voxel_size_user_set"] = True
+        # Explicit marker that the user supplied a COMPLETE voxel size.
+        # Downstream code used to infer this by comparing against (1.0, 1.0),
+        # which silently misreads a legitimate 1 µm isotropic dataset as "not
+        # supplied". Only the two-value form asserts a Z; the one-value form
+        # leaves Z at its default, so it must NOT be treated as a full 3D
+        # assertion or the ladder would reject metadata that supplies the Z.
+        if len(args.voxel_size) == 2:
+            cfg["_voxel_size_user_set"] = True
 
     # 3D proximity threshold (microns), if user provided one
     if args.proximity_threshold_um is not None:
@@ -1129,6 +1133,23 @@ def _is_aics_format(path: Path) -> bool:
     return path.suffix.lower() in _AICS_EXTS
 
 
+def _user_supplied_voxel(cfg: dict) -> bool:
+    """True iff the voxel size in cfg came from the user, not from DEFAULTS.
+
+    Single source of truth for "should file metadata be allowed to win?". Every
+    loader and the 3D voxel ladder must agree on this: if the TIFF path and the
+    multiformat path answer differently, the run reports one voxel size and
+    computes with another.
+
+    ``_voxel_size_user_set`` is set by build_config only for the complete
+    two-value ``--voxel-size XY Z`` form. The ``!= (1.0, 1.0)`` fallback covers
+    values arriving by other routes (a ``--config`` YAML layer, or the
+    single-value form, which leaves Z at its default).
+    """
+    return bool(cfg.get("_voxel_size_user_set")) or (
+        (cfg.get("voxel_size_xy_um"), cfg.get("voxel_size_z_um")) != (1.0, 1.0))
+
+
 def _require_aicsimageio(path: Path) -> None:
     """Backwards-compat name; check that a multiformat backend is installed."""
     if not HAS_MULTIFORMAT:
@@ -1166,10 +1187,8 @@ def _aics_load_3d(
     arr = img.get_image_data("CZYX", T=0)  # (C, Z, Y, X)
 
     # Pull voxel size from the file unless the user explicitly supplied one.
-    # Falling back to a (1.0, 1.0) comparison would ignore a user who really
-    # does have 1 µm isotropic voxels and passed --voxel-size 1.0 1.0.
     voxel = (cfg["voxel_size_xy_um"], cfg["voxel_size_z_um"])
-    if not cfg.get("_voxel_size_user_set") and voxel == (1.0, 1.0):
+    if not _user_supplied_voxel(cfg):
         try:
             pps = img.physical_pixel_sizes
             # AICSImage returns PhysicalPixelSizes(Z, Y, X) in microns.
@@ -1419,7 +1438,12 @@ def load_zstack(
 
     voxel_size = (cfg["voxel_size_xy_um"], cfg["voxel_size_z_um"])
     auto = _read_ome_voxel_size(path)
-    if auto is not None and (voxel_size == (1.0, 1.0)):
+    # Same rule as the multiformat loader and the 3D ladder: an explicit
+    # user-supplied voxel size wins over file metadata. TIFF is the primary
+    # input format, so a sentinel that disagreed here would make the run
+    # compute with one voxel size while the banner and provenance.json
+    # reported another.
+    if auto is not None and not _user_supplied_voxel(cfg):
         voxel_size = auto
 
     declared_axes: str | None = None
@@ -3568,8 +3592,7 @@ def main() -> None:
         # metadata are BOTH read and compared, so a disagreement is surfaced
         # (rather than the CLI silently winning). Both values and any override
         # are recorded in provenance.json.
-        user_set_voxel = bool(cfg.get("_voxel_size_user_set")) or (
-            (cfg["voxel_size_xy_um"], cfg["voxel_size_z_um"]) != (1.0, 1.0))
+        user_set_voxel = _user_supplied_voxel(cfg)
         cli_voxel = ((cfg["voxel_size_xy_um"], cfg["voxel_size_z_um"])
                      if user_set_voxel else None)
         ome_voxel = _read_ome_voxel_size(paths[0])
@@ -3711,12 +3734,15 @@ def main() -> None:
         # correct voxel from the file — the exact silent-isotropic-fallback
         # this pipeline refuses to do.
         _vxy, _vz, _vsrc = _resolved_voxel_size(cfg)
+        # "first file" is deliberate: the metadata voxel size is latched from
+        # the first image and reused for the rest of the run, so this must not
+        # claim to be resolved per image.
         _label = {
-            "metadata": "read per image from file metadata",
+            "metadata": "from file metadata (first file)",
             "assumed_isotropic": "assumed per --assume-isotropic; 3D metrics "
                                  "are in voxel units, not microns",
-            "cli": "from --voxel-size",
-            "cli_override_metadata": "from --voxel-size, overriding file metadata",
+            "cli": "user-specified (--voxel-size or --config)",
+            "cli_override_metadata": "user-specified, overriding file metadata",
         }.get(_vsrc, "source unrecorded")
         if _vxy and _vz:
             print(f"Voxel size: XY={_vxy:.4f} µm, Z={_vz:.4f} µm "
@@ -3774,9 +3800,19 @@ def main() -> None:
             print(f"  [warn] file looks {file_mode} but pipeline mode is "
                   f"{cfg['mode']}; reading anyway")
         if voxel_size is not None:
-            # If metadata gave us a voxel size and the user didn't override,
-            # update the cfg for this file's analysis.
-            if (cfg["voxel_size_xy_um"], cfg["voxel_size_z_um"]) == (1.0, 1.0):
+            # If metadata gave us a voxel size and the user didn't supply one,
+            # adopt it for this file's analysis. Guarding on
+            # _user_supplied_voxel rather than a (1.0, 1.0) comparison keeps
+            # this consistent with both loaders and the ladder, and stops the
+            # message below from claiming "from metadata" for a voxel size the
+            # user passed on the command line.
+            # The second test matters: the loaders return cfg's own value when
+            # a file carries no voxel metadata, so without it this reports
+            # "from metadata" for files that have none (e.g. under
+            # --assume-isotropic).
+            if (not _user_supplied_voxel(cfg)
+                    and voxel_size != (cfg["voxel_size_xy_um"],
+                                       cfg["voxel_size_z_um"])):
                 cfg["voxel_size_xy_um"], cfg["voxel_size_z_um"] = voxel_size
                 print(f"  voxel size from metadata: "
                       f"XY={voxel_size[0]:.4f}, Z={voxel_size[1]:.4f} µm")
