@@ -68,7 +68,7 @@ from itertools import combinations
 from pathlib import Path
 from typing import Any
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 # Suppress duplicate-libomp crash on macOS (conda/pip can install conflicting
 # copies via MKL, PyTorch, and system llvm-openmp).  Must be set before any
@@ -675,6 +675,10 @@ def build_config(args: argparse.Namespace) -> dict[str, Any]:
             cfg["voxel_size_z_um"] = float(args.voxel_size[1])
         else:
             raise ValueError("--voxel-size takes 1 (2D) or 2 (3D) values")
+        # Explicit marker that the user supplied a voxel size. Downstream code
+        # used to infer this by comparing against (1.0, 1.0), which silently
+        # misreads a legitimate 1 µm isotropic dataset as "not supplied".
+        cfg["_voxel_size_user_set"] = True
 
     # 3D proximity threshold (microns), if user provided one
     if args.proximity_threshold_um is not None:
@@ -1161,9 +1165,11 @@ def _aics_load_3d(
     img = _MultiformatReader(str(path))
     arr = img.get_image_data("CZYX", T=0)  # (C, Z, Y, X)
 
-    # Pull voxel size from the file if cfg didn't override it.
+    # Pull voxel size from the file unless the user explicitly supplied one.
+    # Falling back to a (1.0, 1.0) comparison would ignore a user who really
+    # does have 1 µm isotropic voxels and passed --voxel-size 1.0 1.0.
     voxel = (cfg["voxel_size_xy_um"], cfg["voxel_size_z_um"])
-    if voxel == (1.0, 1.0):
+    if not cfg.get("_voxel_size_user_set") and voxel == (1.0, 1.0):
         try:
             pps = img.physical_pixel_sizes
             # AICSImage returns PhysicalPixelSizes(Z, Y, X) in microns.
@@ -3329,6 +3335,32 @@ def _dep_versions() -> dict[str, str]:
     return out
 
 
+def _resolved_voxel_size(cfg: dict) -> tuple[float | None, float | None, str | None]:
+    """Return the (xy, z, source) voxel size a 3D run will ACTUALLY use.
+
+    cfg["voxel_size_*_um"] still holds the (1.0, 1.0) DEFAULTS value when the
+    real voxel size is resolved per image from file metadata, so reading cfg
+    directly reports a voxel size the run never uses — which is precisely the
+    silent 1 µm isotropic fallback this pipeline refuses to perform. The
+    startup banner and the provenance sidecar both go through here so they
+    cannot drift apart.
+    """
+    vprov = cfg.get("_voxel_provenance") or {}
+    src = vprov.get("resolved_from")
+    if src == "metadata":
+        mv = vprov.get("metadata_voxel_size_um") or {}
+        xy, z = mv.get("xy"), mv.get("z")
+        if xy and z:
+            return float(xy), float(z), "metadata"
+        return None, None, "metadata"
+    if src == "assumed_isotropic":
+        return 1.0, 1.0, "assumed_isotropic"
+    xy, z = cfg.get("voxel_size_xy_um"), cfg.get("voxel_size_z_um")
+    return (float(xy) if xy is not None else None,
+            float(z) if z is not None else None,
+            src)
+
+
 def _write_provenance(
     out_dir: Path,
     paths: list[Path],
@@ -3363,6 +3395,7 @@ def _write_provenance(
         except Exception as exc:  # pragma: no cover — best-effort sidecar
             inputs.append({"name": p.name, "error": str(exc)})
 
+    _resolved_voxel = _resolved_voxel_size(cfg)
     record = {
         "cellquant_version": __version__,
         "schema_version": 1,
@@ -3378,8 +3411,8 @@ def _write_provenance(
         "cell_type": cfg.get("cell_type"),
         "pretrained_model": cfg.get("pretrained_model"),
         "voxel_size_um": {
-            "xy": cfg.get("voxel_size_xy_um"),
-            "z": cfg.get("voxel_size_z_um"),
+            "xy": _resolved_voxel[0],
+            "z": _resolved_voxel[1],
         } if cfg.get("mode") == "3d" else None,
         "voxel_size_provenance": (cfg.get("_voxel_provenance")
                                   if cfg.get("mode") == "3d" else None),
@@ -3535,7 +3568,8 @@ def main() -> None:
         # metadata are BOTH read and compared, so a disagreement is surfaced
         # (rather than the CLI silently winning). Both values and any override
         # are recorded in provenance.json.
-        user_set_voxel = (cfg["voxel_size_xy_um"], cfg["voxel_size_z_um"]) != (1.0, 1.0)
+        user_set_voxel = bool(cfg.get("_voxel_size_user_set")) or (
+            (cfg["voxel_size_xy_um"], cfg["voxel_size_z_um"]) != (1.0, 1.0))
         cli_voxel = ((cfg["voxel_size_xy_um"], cfg["voxel_size_z_um"])
                      if user_set_voxel else None)
         ome_voxel = _read_ome_voxel_size(paths[0])
@@ -3670,9 +3704,25 @@ def main() -> None:
     print(f"GPU: {cfg['use_gpu']}")
     if cfg["mode"] == "3d":
         print(f"3D segmentation method: {cfg.get('seg_3d_method', 'stitch')}")
-        print(f"Voxel size: XY={cfg['voxel_size_xy_um']:.4f} µm, "
-              f"Z={cfg['voxel_size_z_um']:.4f} µm "
-              f"(anisotropy={cfg['voxel_size_z_um'] / cfg['voxel_size_xy_um']:.2f})")
+        # Report the voxel size the run will ACTUALLY use, and where it came
+        # from. cfg still holds the (1.0, 1.0) default when the value is
+        # resolved from file metadata per image, so printing cfg here used to
+        # announce "XY=1.0000 µm, Z=1.0000 µm" on runs that went on to read the
+        # correct voxel from the file — the exact silent-isotropic-fallback
+        # this pipeline refuses to do.
+        _vxy, _vz, _vsrc = _resolved_voxel_size(cfg)
+        _label = {
+            "metadata": "read per image from file metadata",
+            "assumed_isotropic": "assumed per --assume-isotropic; 3D metrics "
+                                 "are in voxel units, not microns",
+            "cli": "from --voxel-size",
+            "cli_override_metadata": "from --voxel-size, overriding file metadata",
+        }.get(_vsrc, "source unrecorded")
+        if _vxy and _vz:
+            print(f"Voxel size: XY={_vxy:.4f} µm, Z={_vz:.4f} µm "
+                  f"(anisotropy={_vz / _vxy:.2f}; {_label})")
+        else:
+            print(f"Voxel size: {_label}")
     print(f"Channels: "
           + ", ".join(f"{ch['name']}({ch['role']})" for ch in channels))
     print(f"Nuclear segmentation: {'yes' if has_nuclei else 'skipped (no nucleus channel)'}")
