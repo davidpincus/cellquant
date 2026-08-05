@@ -304,7 +304,10 @@ DEFAULTS: dict[str, Any] = {
     "puncta_filter_round": True,
     "puncta_min_circularity": 0.40,
     "puncta_min_solidity": 0.70,
-    "puncta_compartment": "cytosol",  # "cytosol" | "nucleus" | "whole-cell"
+    "puncta_compartment": "cytosol",  # a built-in or a --compartment NAME
+    # User-defined regions from --compartment "NAME = TERM [op TERM]...".
+    # Empty by default, so a run with no --compartment behaves exactly as before.
+    "compartments": {},
     # Physical-unit inward erosion of the puncta compartment before LoG.
     # 0.0 disables; the mammalian preset overrides to 0.5 µm to suppress the
     # cell-membrane gradient that the LoG-Otsu detector otherwise picks up
@@ -721,6 +724,18 @@ def build_config(args: argparse.Namespace) -> dict[str, Any]:
     if pcm:
         cfg["puncta_params_per_channel"] = pcm
 
+    # Compartment definitions. CLI wins over the YAML layer; either may supply a
+    # list of "NAME = EXPR" strings. The YAML layer assigns cfg keys without
+    # validation (see the --config merge above), so normalise here rather than
+    # letting an unparsed list reach the segmentation loop.
+    comp_specs = args.compartment
+    if comp_specs:
+        cli_provided.add("compartments")
+    elif isinstance(cfg.get("compartments"), list):
+        comp_specs = cfg["compartments"]
+    cfg["compartments"] = (parse_compartment_specs(comp_specs)
+                           if comp_specs else {})
+
     # Stash the preset's 3D overrides on the cfg; main() will apply them once
     # mode is finalized (after auto-detection from the first input file).
     cfg["_preset_3d_overrides"] = preset_3d_overrides
@@ -857,8 +872,21 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--puncta-threshold-fixed", type=float, default=None)
     ap.add_argument("--puncta-min-circularity", type=float, default=None)
     ap.add_argument("--puncta-min-solidity", type=float, default=None)
-    ap.add_argument("--puncta-compartment", default=None,
-                    choices=["cytosol", "nucleus", "whole-cell"])
+    ap.add_argument("--puncta-compartment", default=None, metavar="REGION",
+                    help="Region puncta are detected in: a built-in "
+                         "(cytosol, nucleus, whole-cell, cell, nucleolus) or a "
+                         "name defined with --compartment. Validated at startup.")
+    ap.add_argument("--compartment", action="append", default=None,
+                    metavar='"NAME = EXPR"',
+                    help='Define a region by set algebra; repeatable. '
+                         'EXPR is TERM [op TERM]... with op one of - & + '
+                         '(minus, intersect, union), applied strictly left to '
+                         'right. Operators MUST have spaces around them. A TERM '
+                         'is a built-in (whole-cell, cell, nucleus, cytosol, '
+                         'nucleolus), a NAME defined earlier, or '
+                         'exclusion(CH,within=PARENT); suffix ~UM to grow it or '
+                         '~-UM to shrink it by that many microns. Example: '
+                         '--compartment "cytosol_free = cell - nucleus~0.3"')
     ap.add_argument("--puncta-compartment-erode-um", type=float, default=None,
                     metavar="UM",
                     help="Erode the puncta compartment inward by this many "
@@ -1711,12 +1739,253 @@ def map_nuclei_to_cells(
 # ---------------------------------------------------------------------------
 # Compartment mask creation
 # ---------------------------------------------------------------------------
+BUILTIN_COMPARTMENTS = ("whole-cell", "cell", "nucleus", "cytosol", "nucleolus")
+_COMPARTMENT_OPS = {"-", "&", "+"}
+
+
+def parse_compartment_specs(specs: list[str] | None) -> dict[str, dict]:
+    """Parse repeated ``--compartment "NAME = TERM [op TERM]..."`` definitions.
+
+    Grammar (whitespace-delimited -- operators MUST be surrounded by spaces)::
+
+        NAME = TERM (OP TERM)*
+        OP   := '-' (minus) | '&' (intersect) | '+' (union), strictly left to right
+        TERM := ATOM ['~' PAD]        PAD in microns; +grows, -shrinks
+        ATOM := whole-cell | cell | nucleus | cytosol | nucleolus
+              | <a NAME defined earlier>
+              | exclusion(CHANNEL,within=PARENT)
+
+    Tokenising on whitespace is deliberate: it is what makes ``whole-cell`` and
+    ``cell-boundary`` unambiguous. ``cell - nucleus`` is three tokens and parses;
+    ``cell-nucleus`` is one token and is rejected as an unknown region, with a
+    message telling the user to put spaces around the operator.
+
+    Returns an ordered dict NAME -> {"terms": [(op, atom, pad_um)], "raw": str}.
+    The first term carries op ``None``. Forward references are refused, so
+    evaluating definitions in insertion order is always safe (no cycles are
+    representable).
+    """
+    out: dict[str, dict] = {}
+    for spec in (specs or []):
+        if "=" not in spec:
+            raise ValueError(
+                f"--compartment {spec!r}: expected 'NAME = EXPRESSION' "
+                f"(e.g. --compartment \"cytosol = cell - nucleus\")")
+        name, _, expr = spec.partition("=")
+        name, expr = name.strip(), expr.strip()
+        if not name or not expr:
+            raise ValueError(f"--compartment {spec!r}: empty name or expression")
+        if name in BUILTIN_COMPARTMENTS:
+            raise ValueError(
+                f"--compartment {spec!r}: '{name}' is a built-in region and cannot "
+                f"be redefined. Built-ins: {', '.join(BUILTIN_COMPARTMENTS)}.")
+        if name in out:
+            raise ValueError(f"--compartment {spec!r}: '{name}' defined twice")
+        if any(c in name for c in " :,=()~"):
+            raise ValueError(
+                f"--compartment {spec!r}: compartment name {name!r} may not contain "
+                f"spaces or any of : , = ( ) ~")
+
+        toks = expr.split()
+        if len(toks) % 2 == 0:
+            raise ValueError(
+                f"--compartment {spec!r}: expression must alternate "
+                f"TERM OP TERM ...; got {len(toks)} whitespace-separated tokens. "
+                f"Operators need spaces around them ('cell - nucleus', "
+                f"not 'cell-nucleus').")
+        known = set(BUILTIN_COMPARTMENTS) | set(out)
+        terms: list[tuple[str | None, str, float]] = []
+        for i, tok in enumerate(toks):
+            if i % 2 == 1:
+                if tok not in _COMPARTMENT_OPS:
+                    raise ValueError(
+                        f"--compartment {spec!r}: {tok!r} is not an operator "
+                        f"({' '.join(sorted(_COMPARTMENT_OPS))})")
+                continue
+            atom, pad = tok, 0.0
+            if "~" in tok:
+                atom, _, pad_s = tok.partition("~")
+                try:
+                    pad = float(pad_s)
+                except ValueError:
+                    raise ValueError(
+                        f"--compartment {spec!r}: {pad_s!r} after '~' in {tok!r} "
+                        f"is not a number of microns") from None
+            if atom.startswith("exclusion(") and atom.endswith(")"):
+                pass  # validated at resolution time; see _resolve_compartment_expr
+            elif atom not in known:
+                raise ValueError(
+                    f"--compartment {spec!r}: unknown region {atom!r}. "
+                    f"Available here: {', '.join(sorted(known))}. "
+                    f"(Regions must be defined before they are used, and "
+                    f"operators need spaces: 'cell - nucleus', not 'cell-nucleus'.)")
+            terms.append((None if i == 0 else toks[i - 1], atom, pad))
+        out[name] = {"terms": terms, "raw": spec}
+    return out
+
+
+def _pad_mask_um(mask_bool: np.ndarray, pad_um: float, cfg: dict) -> np.ndarray:
+    """Grow (pad_um > 0) or shrink (pad_um < 0) a mask by a physical distance.
+
+    Uses the anisotropic EDT so the pad is uniform in microns rather than in
+    voxels -- the same reasoning as `_erode_compartment_to_um`, which handles
+    only the shrink direction. In 2D without a voxel size the sampling falls
+    back to 1.0, i.e. the pad is in pixels; `validate_compartment_config`
+    refuses that case rather than letting it pass silently.
+    """
+    if not pad_um:
+        return mask_bool
+    xy = float(cfg.get("voxel_size_xy_um", 1.0) or 1.0)
+    z = float(cfg.get("voxel_size_z_um", 1.0) or 1.0)
+    sampling = (z, xy, xy) if mask_bool.ndim == 3 else (xy, xy)
+    if pad_um > 0:
+        return distance_transform_edt(~mask_bool, sampling=sampling) <= pad_um
+    return distance_transform_edt(mask_bool, sampling=sampling) >= -pad_um
+
+
+def _builtin_compartment(
+    atom: str, cell_mask: np.ndarray, nuc_mask: np.ndarray, cfg: dict,
+    nucleolar_mask: np.ndarray | None,
+) -> np.ndarray:
+    """The built-in named regions. `cytosol` here is bit-for-bit the historical
+    definition: the cell mask minus the GLOBAL union of nuclei dilated by
+    cfg['nucleus_dilate_px'] voxels. Not per-cell -- a cell whose mask overlaps
+    a neighbour's nucleus has that overlap excluded, and changing this would
+    silently move every previously reported cytosol number."""
+    if atom in ("cell", "whole-cell"):
+        return cell_mask > 0
+    if atom == "nucleus":
+        return nuc_mask > 0
+    if atom == "cytosol":
+        radius = int(cfg["nucleus_dilate_px"])
+        if radius > 0:
+            footprint = (morphology.ball(radius) if cell_mask.ndim == 3
+                         else morphology.disk(radius))
+            nuc_dil = morphology.dilation((nuc_mask > 0), footprint=footprint)
+        else:
+            nuc_dil = (nuc_mask > 0)
+        return (cell_mask > 0) & (~nuc_dil)
+    if atom == "nucleolus":
+        if nucleolar_mask is None:
+            raise ValueError(
+                "compartment expression references 'nucleolus' but no nucleolar "
+                "mask exists for this run. Give a channel the 'nucleolus' role, "
+                "e.g. \"2:Nsr1:nucleolus\".")
+        return nucleolar_mask > 0
+    raise ValueError(f"Unknown built-in region: {atom!r}")
+
+
+def _resolve_compartment_expr(
+    name: str, cell_mask: np.ndarray, nuc_mask: np.ndarray, cfg: dict,
+    nucleolar_mask: np.ndarray | None, _cache: dict[str, np.ndarray] | None = None,
+) -> np.ndarray:
+    """Evaluate a user-defined compartment, strictly left to right."""
+    cache = _cache if _cache is not None else {}
+    if name in cache:
+        return cache[name]
+    defs = cfg.get("compartments") or {}
+    terms = defs[name]["terms"]
+    result: np.ndarray | None = None
+    for op, atom, pad in terms:
+        if atom.startswith("exclusion("):
+            raise ValueError(
+                f"--compartment {defs[name]['raw']!r}: negative-space detection "
+                f"(exclusion(...)) is parsed but not yet enabled. The detector "
+                f"has no validated defaults: on the yeast test data, dark "
+                f"regions below 0.65x the per-cell median are absent from "
+                f"maximum-intensity projections entirely, and a single in-focus "
+                f"plane yields only ~0.09 candidate objects per cell. Shipping "
+                f"defaults calibrated on that would produce plausible masks from "
+                f"noise. Calibration against a dedicated vacuole marker "
+                f"(FM4-64, Vph1-GFP, CMAC) is required first.")
+        if atom in BUILTIN_COMPARTMENTS:
+            m = _builtin_compartment(atom, cell_mask, nuc_mask, cfg, nucleolar_mask)
+        else:
+            m = _resolve_compartment_expr(
+                atom, cell_mask, nuc_mask, cfg, nucleolar_mask, cache)
+        m = _pad_mask_um(m, pad, cfg)
+        if result is None:
+            result = m
+        elif op == "-":
+            result = result & (~m)
+        elif op == "&":
+            result = result & m
+        elif op == "+":
+            result = result | m
+    cache[name] = result
+    return result
+
+
+def validate_compartment_config(cfg: dict, channels: list[dict]) -> None:
+    """Check every compartment REFERENCE resolves, before any segmentation runs.
+
+    Without this a typo in --puncta-compartment raises deep in the per-image
+    loop, after Cellpose has already spent minutes. Same reasoning as the
+    voxel-size ladder: fail at startup, naming the fix.
+    """
+    defs = cfg.get("compartments") or {}
+    legal = set(BUILTIN_COMPARTMENTS) | set(defs)
+    has_nucleolus = any(ch["role"] == "nucleolus" for ch in channels)
+
+    refs = [("--puncta-compartment", cfg.get("puncta_compartment"))]
+    if cfg.get("colocalization_compartment"):
+        refs.append(("--colocalization-compartment",
+                     cfg.get("colocalization_compartment")))
+    for ch_name, over in (cfg.get("puncta_params_per_channel") or {}).items():
+        if isinstance(over, dict) and over.get("puncta_compartment"):
+            refs.append((f"--puncta-params-per-channel {ch_name}",
+                         over["puncta_compartment"]))
+    for flag, val in refs:
+        if val and val not in legal:
+            raise SystemExit(
+                f"[error] {flag}={val!r} is not a known region.\n"
+                f"        Known: {', '.join(sorted(legal))}.\n"
+                f"        Define it first with "
+                f"--compartment \"{val} = cell - nucleus\".")
+
+    needs_voxel = any(
+        pad for d in defs.values() for _, _, pad in d["terms"] if pad)
+    if needs_voxel and cfg.get("mode") != "3d":
+        xy = float(cfg.get("voxel_size_xy_um", 1.0) or 1.0)
+        if xy == 1.0:
+            raise SystemExit(
+                "[error] a --compartment expression uses a '~' pad in microns, but "
+                "no pixel size is available in 2D mode, so the pad would silently "
+                "be applied in PIXELS.\n"
+                "        Pass --voxel-size XY_UM, or drop the '~' pad.")
+    for nm, d in defs.items():
+        for _, atom, _ in d["terms"]:
+            if atom.startswith("exclusion("):
+                raise SystemExit(
+                    f"[error] --compartment {d['raw']!r}: negative-space detection "
+                    f"(exclusion(...)) is parsed but not yet enabled.\n"
+                    f"        The detector has no validated defaults. On the yeast "
+                    f"test data, dark regions below 0.65x the per-cell median are\n"
+                    f"        absent from maximum-intensity projections entirely, "
+                    f"and a single in-focus plane yields only ~0.09 candidate\n"
+                    f"        objects per cell. Shipping defaults calibrated on "
+                    f"that would produce plausible masks out of noise.\n"
+                    f"        Calibration against a dedicated vacuole marker "
+                    f"(FM4-64, Vph1-GFP, CMAC) is required first.")
+            if atom == "nucleolus" and not has_nucleolus:
+                raise SystemExit(
+                    f"[error] --compartment {d['raw']!r} references 'nucleolus' but "
+                    f"no channel has the 'nucleolus' role.\n"
+                    f"        Add one, e.g. \"2:Nsr1:nucleolus\".")
+
+
 def make_compartment_mask(
     cell_mask: np.ndarray,
     nuc_mask: np.ndarray,
     compartment: str,
     cfg: dict,
+    *,
+    nucleolar_mask: np.ndarray | None = None,
 ) -> np.ndarray:
+    defs = cfg.get("compartments") or {}
+    if compartment in defs:
+        return _resolve_compartment_expr(
+            compartment, cell_mask, nuc_mask, cfg, nucleolar_mask)
     if compartment == "cytosol":
         radius = int(cfg["nucleus_dilate_px"])
         if radius > 0:
@@ -1730,8 +1999,14 @@ def make_compartment_mask(
         return (nuc_mask > 0)
     elif compartment == "whole-cell":
         return (cell_mask > 0)
+    elif compartment in ("cell", "nucleolus"):
+        return _builtin_compartment(
+            compartment, cell_mask, nuc_mask, cfg, nucleolar_mask)
     else:
-        raise ValueError(f"Unknown puncta_compartment: {compartment}")
+        legal = sorted(set(BUILTIN_COMPARTMENTS) | set(defs))
+        raise ValueError(
+            f"Unknown compartment: {compartment!r}. Known: {', '.join(legal)}. "
+            f"Define new ones with --compartment \"NAME = cell - nucleus\".")
 
 
 # ---------------------------------------------------------------------------
@@ -2294,6 +2569,7 @@ def per_cell_metrics(
     channels: list[dict],
     cfg: dict,
     fragmentation_per_channel: dict[str, dict[int, tuple[int, float]]] | None = None,
+    nucleolar_mask: np.ndarray | None = None,
 ) -> pd.DataFrame:
     is_3d = cell_mask.ndim == 3
     rows: list[dict[str, Any]] = []
@@ -2316,6 +2592,13 @@ def per_cell_metrics(
     cell_ids = cell_ids[cell_ids != 0]
     compartment = cfg.get("puncta_compartment", "cytosol")
     fragmentation_per_channel = fragmentation_per_channel or {}
+
+    # User-defined regions are global masks; resolve each once, then intersect
+    # with the cell inside the loop. Sorted for a stable cells.csv column order.
+    user_comps: dict[str, np.ndarray] = {}
+    for _cname in sorted(cfg.get("compartments") or {}):
+        user_comps[_cname] = make_compartment_mask(
+            cell_mask, nuc_mask, _cname, cfg, nucleolar_mask=nucleolar_mask)
 
     for cid in cell_ids:
         cell_bin = (cell_mask == cid)
@@ -2356,6 +2639,13 @@ def per_cell_metrics(
                 nucleus_area_px=int(nuc_bin.sum()),
                 cytosol_area_px=int(cyt_bin.sum()),
             )
+        for _cname, _cmask in user_comps.items():
+            _sz = int((_cmask & cell_bin).sum())
+            if is_3d:
+                row[f"{_cname}_volume_vox"] = _sz
+                row[f"{_cname}_volume_um3"] = _sz * voxel_um3
+            else:
+                row[f"{_cname}_area_px"] = _sz
 
         # Per non-skip channel: mean intensities + (opt-in) condensate index
         want_ci = bool(cfg.get("condensate_index", False))
@@ -2365,6 +2655,8 @@ def per_cell_metrics(
             row[f"{name}_cell_mean"] = safe_mean(img, cell_bin)
             row[f"{name}_nucleus_mean"] = safe_mean(img, nuc_bin)
             row[f"{name}_cytosol_mean"] = safe_mean(img, cyt_bin)
+            for _cname, _cmask in user_comps.items():
+                row[f"{name}_{_cname}_mean"] = safe_mean(img, _cmask & cell_bin)
 
             if want_ci:
                 m_cell = row[f"{name}_cell_mean"]
@@ -3525,6 +3817,14 @@ def main() -> None:
         cfg["puncta_compartment"] = "whole-cell"
         compartment = "whole-cell"
 
+    # Resolve every compartment reference before any segmentation runs. A typo
+    # used to surface deep in the per-image loop, after Cellpose had already
+    # spent minutes on the first image.
+    validate_compartment_config(cfg, channels)
+    if cfg.get("compartments"):
+        print("Compartments: " + "; ".join(
+            d["raw"] for d in cfg["compartments"].values()))
+
     if not has_nuclei and int(cfg.get("keep_min_nuclei", 0)) > 0:
         print("[warn] No nucleus channel but keep_min_nuclei > 0 — "
               "all cells will fail nuclei gate")
@@ -3944,7 +4244,8 @@ def main() -> None:
 
         # Create compartment mask for puncta detection
         compartment_mask = make_compartment_mask(
-            cell_mask, nuc_mask, compartment, cfg)
+            cell_mask, nuc_mask, compartment, cfg,
+            nucleolar_mask=nucleolar_mask)
 
         # Detect puncta per channel — each channel sees its own resolved cfg
         # (per-channel overrides applied; rolling-ball radius routed in).
@@ -3956,7 +4257,8 @@ def main() -> None:
             if ch_cfg.get("puncta_compartment") != compartment:
                 ch_compartment_mask = make_compartment_mask(
                     cell_mask, nuc_mask,
-                    ch_cfg.get("puncta_compartment", compartment), cfg)
+                    ch_cfg.get("puncta_compartment", compartment), cfg,
+                    nucleolar_mask=nucleolar_mask)
             else:
                 ch_compartment_mask = compartment_mask
             puncta_masks[ch_name] = detect_puncta(
@@ -3974,7 +4276,8 @@ def main() -> None:
         cells_df = per_cell_metrics(
             p.name, images, cell_mask, nuc_mask, puncta_masks,
             cell_to_nucs, meta, channels, cfg,
-            fragmentation_per_channel=fragmentation_per_channel)
+            fragmentation_per_channel=fragmentation_per_channel,
+            nucleolar_mask=nucleolar_mask)
         img_df = per_image_summary(cells_df, puncta_chs)
         img_df.insert(0, "image", p.name)
         if meta["condition"]:

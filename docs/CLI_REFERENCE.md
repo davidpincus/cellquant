@@ -197,12 +197,38 @@ By default, the pipeline uses the `nucleus` channel for cell segmentation. If no
 --puncta-threshold-fixed 500.0  # Fixed threshold value (if method is fixed)
 --puncta-min-circularity 0.0    # Minimum punctum circularity (0–1)
 --puncta-min-solidity 0.0       # Minimum punctum solidity (0–1)
---puncta-compartment {cytosol, whole-cell, nucleus}
+--puncta-compartment REGION     # a built-in or a name defined with --compartment
 ```
 
 **Default behavior:** If `--puncta-channels` is not specified, puncta are automatically detected in all `quantify` channels. Use `--no-puncta` to suppress puncta detection and compute only intensity metrics. Use `--puncta-channels` to override the default and detect puncta in specific channels only.
 
 `--puncta-compartment cytosol` restricts puncta detection to the cytoplasmic region (cell minus nucleus). Requires a `nucleus` channel. Falls back to `whole-cell` if no nucleus is available.
+
+### Defining your own regions
+
+Built-in regions: `whole-cell`, `cell`, `nucleus`, `cytosol`, `nucleolus`. You can define more by set algebra, and use the name anywhere a region is accepted (`--puncta-compartment`, `--colocalization-compartment`, per-channel overrides).
+
+```bash
+--compartment "NAME = TERM [op TERM]..."   # repeatable
+```
+
+- `op` is `-` (minus), `&` (intersect) or `+` (union), applied **strictly left to right** — there is no operator precedence and no parentheses.
+- **Operators must have spaces around them.** `cell - nucleus` is three tokens and parses; `cell-nucleus` is one token and is rejected, because otherwise it could not be told apart from the region named `whole-cell`.
+- A `TERM` is a built-in, a name you defined **earlier** (forward references are refused, so a definition can never be circular), or `exclusion(CHANNEL,within=PARENT)`.
+- Suffix a term with `~UM` to grow it or `~-UM` to shrink it by that many microns, measured with the anisotropic distance transform so the pad is physically uniform in 3D. In 2D this requires `--voxel-size`; without it the run aborts rather than silently applying the pad in pixels.
+
+```bash
+# cytoplasm excluding a generously-padded nucleus
+--compartment "cytosol_wide = cell - nucleus~0.3" --puncta-compartment cytosol_wide
+
+# everything in the cell that is not nucleolus, then trim the rim further
+--compartment "peri = cell - nucleolus" \
+--compartment "peri_tight = peri - nucleolus~0.3" --voxel-size 0.10571
+```
+
+Each defined region adds `{channel}_{NAME}_mean` and `{NAME}_area_px` (2D) or `{NAME}_volume_vox` / `{NAME}_volume_um3` (3D) to `cells.csv`. Every region reference is checked at startup, before segmentation runs, so a typo fails immediately instead of after Cellpose.
+
+`exclusion(CHANNEL,within=PARENT)` is intended for regions defined by *absence* of signal — a vacuole seen as a hole in a cytosolic marker. The syntax parses, but the detector is **not yet enabled**: it has no defaults validated against a dedicated vacuole marker, and on projection data the signal it would key on is largely absent. Using it aborts with an explanation.
 
 ### Per-channel puncta tuning
 
