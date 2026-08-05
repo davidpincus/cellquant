@@ -51,3 +51,11 @@ cellquant_3d_Asif/
 *.bak
 # Private local project instructions
 CLAUDE.local.md
+figure5_benchmark/
+# Private revision working notes at the repo ROOT. This repo is PUBLIC: these files
+# carry reviewer/editor identities, unpublished results, and rebuttal strategy.
+# Root-anchored so validation_3d/**/*.md stays tracked.
+/*handoff*.md
+/*HANDOFF*.md
+/*rebuttal*.md
+/*REBUTTAL*.md

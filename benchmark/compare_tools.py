@@ -30,46 +30,17 @@ import sys
 
 import numpy as np
 import pandas as pd
-import tifffile
 from scipy.spatial import cKDTree
 from scipy.stats import pearsonr, spearmanr
-from skimage.measure import regionprops
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
-# ---- Verified column mapping (fill/override from the tools' actual outputs) ----
-COLMAP = {
-    "cellquant": {
-        "image": "image",              # e.g. MAX_control_rep1.tif
-        "cell_id": "cell_id",          # == integer label in {image}_cellmask.tif
-        "keep": "keep",                # analysis-set filter (1-4 nuclei); optional
-        "count": "G3BP1_puncta_n",
-        "puncta_area_px": "G3BP1_puncta_area_px",
-        "cell_area_px": "cell_area_px",
-        "intensity": "G3BP1_cell_mean",
-    },
-    "cp_cells": {
-        "imagenumber": "ImageNumber",
-        "object": "ObjectNumber",
-        "cx": "Location_Center_X",
-        "cy": "Location_Center_Y",
-        "cell_area": "AreaShape_Area",
-        "count": "Children_Puncta_Count",
-        "intensity": "Intensity_MeanIntensity_G3BP1",
-    },
-    "cp_puncta": {
-        "imagenumber": "ImageNumber",
-        "parent_cell": "Parent_Cells",
-        "area": "AreaShape_Area",
-    },
-    "cp_image": {
-        "imagenumber": "ImageNumber",
-        "filename_g3bp1": "FileName_G3BP1",   # -> base image key
-    },
-}
+# Shared IO (loaders + verified column mapping) lives in bench_io so the two
+# diagnostic scripts reuse the exact same parsing. Behaviour here is unchanged.
+from bench_io import COLMAP, load_cellquant, load_cellprofiler
 
 # Measures compared; shared_units controls whether Bland-Altman is a direct
 # quantity or dominated by a unit difference (intensity).
@@ -78,123 +49,6 @@ MEASURES = [
     ("area_fraction", "puncta area fraction",     True),
     ("intensity",     "mean cell G3BP1 intensity", False),
 ]
-
-
-def _require_cols(df, cols, what):
-    missing = [c for c in cols if c not in df.columns]
-    if missing:
-        raise SystemExit(
-            f"ERROR: {what} is missing expected column(s) {missing}.\n"
-            f"       Present columns: {list(df.columns)}\n"
-            f"       Fix the mapping (COLMAP / --*-col overrides)."
-        )
-
-
-def _nonempty(df, path):
-    if df is None or len(df) == 0:
-        raise SystemExit(f"ERROR: {path} is empty (0 rows) — refusing to proceed (fail loud).")
-    return df
-
-
-def base_of(image_name):
-    """MAX_control_rep1.tif -> MAX_control_rep1 ; strip a trailing _<CHANNEL>."""
-    b = str(image_name)
-    for ext in (".tif", ".tiff"):
-        if b.endswith(ext):
-            b = b[: -len(ext)]
-    for tok in ("_G3BP1", "_DAPI", "_PABPC1"):
-        if b.endswith(tok):
-            b = b[: -len(tok)]
-    return b
-
-
-def load_cellquant(cells_csv, masks_dir, cm):
-    if not os.path.exists(cells_csv):
-        raise SystemExit(f"ERROR: cellquant cells.csv not found: {cells_csv}")
-    df = _nonempty(pd.read_csv(cells_csv), cells_csv)
-    _require_cols(df, [cm["image"], cm["cell_id"], cm["count"],
-                       cm["puncta_area_px"], cm["cell_area_px"], cm["intensity"]], "cellquant cells.csv")
-    if cm["keep"] in df.columns:
-        n0 = len(df)
-        df = df[df[cm["keep"]].astype(bool)].copy()
-        print(f"[cellquant] kept {len(df)}/{n0} cells passing the '{cm['keep']}' filter (analysis set).")
-    df["base"] = df[cm["image"]].map(base_of)
-    df["measure_count"] = df[cm["count"]].astype(float)
-    df["measure_area_fraction"] = df[cm["puncta_area_px"]].astype(float) / df[cm["cell_area_px"]].astype(float)
-    df["measure_intensity"] = df[cm["intensity"]].astype(float)
-
-    # centroids from the integer cell masks (label == cell_id)
-    cx, cy = [], []
-    cache = {}
-    n_missing_mask = 0
-    for _, r in df.iterrows():
-        b = r["base"]
-        if b not in cache:
-            mpath = os.path.join(masks_dir, f"{b}_cellmask.tif")
-            if not os.path.exists(mpath):
-                raise SystemExit(
-                    f"ERROR: cellquant cell mask not found: {mpath}\n"
-                    f"       centroids are derived from the masks (cells.csv has no centroid);\n"
-                    f"       point --cellquant-masks at the run's masks/ dir."
-                )
-            m = tifffile.imread(mpath)
-            cache[b] = {p.label: (float(p.centroid[1]), float(p.centroid[0])) for p in regionprops(m)}
-        c = cache[b].get(int(r[cm["cell_id"]]))
-        if c is None:
-            n_missing_mask += 1
-            cx.append(np.nan); cy.append(np.nan)
-        else:
-            cx.append(c[0]); cy.append(c[1])
-    df["cx"], df["cy"] = cx, cy
-    if n_missing_mask:
-        print(f"[cellquant] WARNING: {n_missing_mask} cells in cells.csv had no matching label in the mask.")
-    df["equiv_d"] = 2.0 * np.sqrt(df[cm["cell_area_px"]].astype(float) / np.pi)
-    df = df.dropna(subset=["cx", "cy"]).reset_index(drop=True)
-    df["uid"] = df["base"] + "#cq" + df[cm["cell_id"]].astype(int).astype(str)
-    return df
-
-
-def load_cellprofiler(cp_cells_csv, cp_puncta_csv, cp_image_csv, cm_c, cm_p, cm_i):
-    if not os.path.exists(cp_cells_csv):
-        raise SystemExit(f"ERROR: CellProfiler cp_Cells.csv not found: {cp_cells_csv}")
-    cells = _nonempty(pd.read_csv(cp_cells_csv), cp_cells_csv)
-    punc = pd.read_csv(cp_puncta_csv) if os.path.exists(cp_puncta_csv) else pd.DataFrame()
-    _require_cols(cells, [cm_c["imagenumber"], cm_c["object"], cm_c["cx"], cm_c["cy"],
-                          cm_c["cell_area"], cm_c["count"], cm_c["intensity"]], "cp_Cells.csv")
-
-    # ImageNumber -> base, via cp_Image.csv
-    if not os.path.exists(cp_image_csv):
-        raise SystemExit(
-            f"ERROR: cp_Image.csv not found: {cp_image_csv}\n"
-            f"       needed to map ImageNumber -> image name (cp_Cells has no filename).\n"
-            f"       pass --cp-image or keep it beside --cp-cells."
-        )
-    imgdf = _nonempty(pd.read_csv(cp_image_csv), cp_image_csv)
-    _require_cols(imgdf, [cm_i["imagenumber"], cm_i["filename_g3bp1"]], "cp_Image.csv")
-    imgdf["base"] = imgdf[cm_i["filename_g3bp1"]].map(base_of)
-    num2base = dict(zip(imgdf[cm_i["imagenumber"]], imgdf["base"]))
-    cells["base"] = cells[cm_c["imagenumber"]].map(num2base)
-
-    # per-cell puncta area from parent links (sum child puncta area / cell area)
-    punc_area_by_cell = {}
-    if len(punc):
-        _require_cols(punc, [cm_p["imagenumber"], cm_p["parent_cell"], cm_p["area"]], "cp_Puncta.csv")
-        g = punc[punc[cm_p["parent_cell"]] > 0].groupby(
-            [cm_p["imagenumber"], cm_p["parent_cell"]])[cm_p["area"]].sum()
-        punc_area_by_cell = g.to_dict()
-
-    def cell_punc_area(row):
-        return float(punc_area_by_cell.get((row[cm_c["imagenumber"]], row[cm_c["object"]]), 0.0))
-
-    cells["punc_area"] = cells.apply(cell_punc_area, axis=1)
-    cells["measure_count"] = cells[cm_c["count"]].astype(float)
-    cells["measure_area_fraction"] = cells["punc_area"] / cells[cm_c["cell_area"]].astype(float)
-    cells["measure_intensity"] = cells[cm_c["intensity"]].astype(float)
-    cells["cx"] = cells[cm_c["cx"]].astype(float)
-    cells["cy"] = cells[cm_c["cy"]].astype(float)
-    cells["equiv_d"] = 2.0 * np.sqrt(cells[cm_c["cell_area"]].astype(float) / np.pi)
-    cells["uid"] = cells["base"] + "#cp" + cells[cm_c["object"]].astype(int).astype(str)
-    return cells
 
 
 def mutual_nn(A, B, tol):

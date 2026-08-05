@@ -1,7 +1,9 @@
 # Benchmark OUTPUTS — data, never commit. Versioning the *code* is the point,
 # not the derived data.
-# Commit only: build_cppipe.py, cellprofiler_hct116.cppipe, compare_tools.py,
-# run_benchmark.sh, README.md, and this file.
+# Commit only: bench_io.py, build_cppipe.py, cellprofiler_hct116.cppipe,
+# compare_tools.py, puncta_diagnostic.py, replicate_compare.py, run_benchmark.sh,
+# README.md, and this file. compare_tools.py imports bench_io, so the .py files
+# must be added together or the harness breaks at stage [5/7] with ImportError.
 
 # Tool run outputs
 out_cq/

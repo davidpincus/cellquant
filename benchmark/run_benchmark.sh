@@ -93,7 +93,7 @@ for f in cp_Cells.csv cp_Puncta.csv cp_Image.csv; do
 done
 echo "  cp_Cells rows: $(($(wc -l < "$OUT_CP/cp_Cells.csv") - 1)), cp_Puncta rows: $(($(wc -l < "$OUT_CP/cp_Puncta.csv") - 1))"
 
-echo "== [5/5] compare =="
+echo "== [5/7] per-cell compare =="
 rm -rf "$CMP"; mkdir -p "$CMP"
 "$COMPARE_PY" "$HERE/compare_tools.py" \
     --cellquant-cells "$OUT_CQ/cells.csv" \
@@ -103,5 +103,25 @@ rm -rf "$CMP"; mkdir -p "$CMP"
     --cp-image "$OUT_CP/cp_Image.csv" \
     --out-dir "$CMP" || die "compare_tools.py failed"
 
+echo "== [6/7] replicate-level agreement =="
+"$COMPARE_PY" "$HERE/replicate_compare.py" \
+    --cellquant-cells "$OUT_CQ/cells.csv" \
+    --cellquant-masks "$OUT_CQ/masks" \
+    --cp-cells "$OUT_CP/cp_Cells.csv" \
+    --cp-puncta "$OUT_CP/cp_Puncta.csv" \
+    --cp-image "$OUT_CP/cp_Image.csv" \
+    --out-dir "$CMP" || die "replicate_compare.py failed"
+
+echo "== [7/7] puncta detection diagnostic =="
+"$COMPARE_PY" "$HERE/puncta_diagnostic.py" \
+    --matches "$CMP/matches.csv" \
+    --cellquant-masks "$OUT_CQ/masks" \
+    --cp-puncta "$OUT_CP/cp_Puncta.csv" \
+    --cp-image "$OUT_CP/cp_Image.csv" \
+    --images-dir "$HCT116_DIR" \
+    --out-dir "$CMP" || die "puncta_diagnostic.py failed"
+
 echo "== DONE =="
-echo "  results: $CMP/{benchmark_summary.csv,benchmark_summary.json,matches.csv,agreement_combined.pdf}"
+echo "  per-cell:   $CMP/{benchmark_summary.csv,matches.csv,agreement_combined.pdf}"
+echo "  replicate:  $CMP/{replicate_agreement.csv,replicate_summary.json,replicate_combined.pdf}"
+echo "  diagnostic: $CMP/{puncta_size_distributions.pdf,puncta_overlays/}"
