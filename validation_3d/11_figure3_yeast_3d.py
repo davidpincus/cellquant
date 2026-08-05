@@ -19,7 +19,7 @@ Panel mapping, published 2D -> 3D:
     Sis1/Nsr1/Tif6 cell mean    -> unchanged
     Pearson R Tif6 vs Nsr1      -> computed natively on the z-stack
 
-Statistics: two-sided exact Mann-Whitney U on replicate medians, each
+Statistics: two-sided Mann-Whitney U on replicate medians, each
 temperature vs 25 C, Bonferroni-corrected across the four comparisons. At
 n = 5-8 replicates the exact test is appropriate; the normal approximation
 (scipy.stats.ranksums) gives materially different values at this n.
@@ -120,7 +120,7 @@ def stats_vs_ref(rm: pd.DataFrame) -> dict[str, dict]:
         if len(v) < 2 or len(ref) < 2:
             out[t] = {"p_raw": np.nan, "p_adj": np.nan, "sig": False}
             continue
-        p = mannwhitneyu(v, ref, alternative="two-sided", method="exact").pvalue
+        p = mannwhitneyu(v, ref, alternative="two-sided").pvalue
         p_adj = min(p * N_COMPARISONS, 1.0)
         out[t] = {"p_raw": float(p), "p_adj": float(p_adj), "sig": p_adj < 0.05}
     return out
