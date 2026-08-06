@@ -101,7 +101,7 @@ All preset values can be overridden: `--cell-type yeast --cell-diameter 50`
 
 ## Requirements
 
-- Python 3.11+
+- Python 3.11 or 3.12 (3.13 is not supported — Cellpose/PyTorch wheels and the `numpy<2.0` pin)
 - Cellpose 4.x
 - scikit-image, numpy, pandas, matplotlib, scipy, PyYAML, tifffile
 

@@ -61,9 +61,11 @@ Your Python version may be too old.
 ```bash
 python --version
 ```
-You need 3.11 or higher. Create a new environment with the right version:
+You need **3.11 or 3.12** (3.13 is not supported). Rebuild the environment from the spec file — this installs the dependencies too, which a bare `conda create` would not:
 ```bash
-conda create -n cellquant python=3.11 -y
+conda env remove -n cellquant
+conda env create -f environment.yml
+conda activate cellquant
 ```
 
 ### "TypeError: remove_small_objects() got an unexpected keyword argument 'max_size'"
@@ -94,11 +96,7 @@ On the first real run (not `--help`), Cellpose needs to download its segmentatio
 
 Cellpose couldn't find the specified model file. The pipeline will fall back to the default model, which should work fine.
 
-**If you want a specific model:** Check `~/.cellpose/models/` to see what's installed. You can download models from within Python:
-```python
-from cellpose import models
-models.Cellpose(model_type="cyto3")  # Downloads if not present
-```
+**If you want a specific model:** cellpose 4.x ships exactly one model, `cpsam`, and the older `model_type` names (`cyto3`, `nuclei`, …) no longer exist. `--pretrained-model` accepts `cpsam` (the default) or an absolute path to a checkpoint you trained yourself; anything else falls back to cpsam with the warning above. Installed checkpoints live in `~/.cellpose/models/`.
 
 ### "No images found in [path]"
 

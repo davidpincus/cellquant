@@ -29,7 +29,7 @@ uv run cellquant.py example_data/mammalian_SGs/ \
   --filename-pattern "MAX_{condition}_rep{replicate}"
 ```
 
-This should finish in 1–2 minutes. Check the results:
+This should finish in under a minute. Check the results:
 
 ```bash
 open example_data/mammalian_SGs/test_output/qc/      # Mac
@@ -37,6 +37,18 @@ open example_data/mammalian_SGs/test_output/qc/      # Mac
 ```
 
 If you see images with cyan cell outlines and yellow nuclear outlines, it's working.
+
+### The warning you will see — it's expected
+
+```
+[warn] --puncta-compartment-erode-um = 0.5 µm comes from the 'mammalian' preset,
+       but this 2D input carries no pixel size, so the value cannot be
+       interpreted in microns. It is being SKIPPED, not applied as pixels.
+```
+
+The example TIFFs carry no pixel-size metadata, so cellquant cannot convert 0.5 µm into pixels. Rather than guess — or silently treat "0.5 µm" as "0.5 pixels", which would be a no-op that looks like it worked — it disables the erosion and says so. On your own images, pass `--voxel-size XY_UM` (your lateral pixel size in microns) to enable it.
+
+The distinction matters: a micron value that came from a **preset** warns and is skipped, as here. A micron value that **you typed** is an assertion about physical units cellquant cannot honour, so it aborts instead.
 
 ## Use it on your own data
 
@@ -68,6 +80,7 @@ python cellquant.py /path/to/images/ \
   --cell-type yeast \
   --out /path/to/output/ \
   --colocalization \
+  --allow-2d-colocalization \
   --nucleolar-proximity NucMarker \
   --puncta-channels Protein1 Protein2 \
   --filename-pattern "MAX_{condition}_rep{replicate}"

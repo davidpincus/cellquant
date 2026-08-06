@@ -124,9 +124,9 @@ cellquant prefers `bioio` (the actively-maintained modular successor to aicsimag
 
 ```bash
 --filename-pattern "MAX_{condition}_rep{replicate}"
-# or equivalently:
---file-pattern "MAX_{condition}_rep{replicate}"
 ```
+
+`--filename-pattern` and `--file-pattern` are **not** the same flag. `--file-pattern` is a discovery glob that replaces the default extension sweep (`--file-pattern "*.tif"`); it does not understand `{condition}` placeholders, and passing one there matches no files and aborts the run.
 
 Curly-brace placeholders are extracted from filenames. Common patterns:
 
@@ -276,7 +276,7 @@ See [CONCEPTS.md](CONCEPTS.md) for when each is preferable to `puncta_n`.
 
 Computes Pearson's R and Manders' M1/M2 (with Costes automatic thresholding) for all pairs of `quantify` + `nucleolus` channels. Requires at least 2 eligible channels.
 
-In 3D mode cellquant computes Pearson and Manders natively over the full voxel distribution. In 2D mode it computes them on the input image as-is — **which is statistically unreliable when the input is a maximum intensity projection of an underlying z-stack**. Pearson's R and Manders' M1/M2 are defined on the 3D voxel distribution; collapsing Z first changes apparent overlap. cellquant prints a loud runtime warning when `--colocalization` is run in 2D mode for this reason. Either re-run on the source z-stacks (cellquant runs 3D colocalization natively) or treat MIP-based values as qualitative.
+In 3D mode cellquant computes Pearson and Manders natively over the full voxel distribution. Pearson's R and Manders' M1/M2 are defined on the 3D voxel distribution; collapsing Z first changes apparent overlap, so **in 2D mode cellquant refuses the run and exits** rather than reporting a number it cannot stand behind. Either re-run on the source z-stacks (cellquant runs 3D colocalization natively), or pass `--allow-2d-colocalization` to force it — in which case every row of `colocalization.csv` is stamped `projection_derived=True`.
 
 See [CONCEPTS.md — Colocalization](CONCEPTS.md#colocalization-opt-in-via---colocalization) for a longer discussion.
 

@@ -2,6 +2,8 @@
 
 This tutorial covers a multi-condition experiment with explicit positive and negative controls. The structure here generalizes to most dose-response or panel comparisons — drug concentrations, time points, mutant alleles, temperatures — that you'd display as a four-panel superplot with statistics anchored to a chosen reference.
 
+> **This tutorial uses your own data.** Unlike [Tutorial 1](TUTORIAL_1_mammalian_SGs.md) and [Tutorial 2](TUTORIAL_2_yeast_temp.md), no `arsenite_doseresponse/` dataset ships with cellquant. The commands below are a template to adapt to a four-condition experiment of your own, and the numbers shown are illustrative rather than reproducible.
+
 > **Reminder.** cellquant is not a substitute for understanding what the analysis is doing. The numbers it produces are only meaningful if the segmentation is good, the metric matches your biology, and the conditions are comparable. If you haven't read [CONCEPTS.md](CONCEPTS.md), skim the puncta-detection section before trusting the puncta counts you'll see in this tutorial.
 
 ## The experiment
@@ -48,6 +50,7 @@ uv run cellquant.py arsenite_doseresponse/ \
     --condition-order mock low medium high \
     --reference-condition mock \
     --colocalization \
+    --allow-2d-colocalization \
     --puncta-channels G3BP1 PABPC1
 ```
 

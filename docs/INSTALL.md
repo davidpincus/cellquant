@@ -267,7 +267,7 @@ You forgot to activate the environment. Run `conda activate cellquant` first.
 Normal — it's downloading PyTorch, which is about 2 GB. Wait for it to finish.
 
 **"ERROR: Could not find a version that satisfies the requirement..."**
-Your Python version might be too old. Check with `python --version`. You need 3.11 or higher.
+Check with `python --version`. You need **3.11 or 3.12** — 3.13 is not supported, because Cellpose/PyTorch wheels and the `numpy<2.0` pin are not available for it.
 
 **Apple Silicon Mac: "BFloat16 is not supported on MPS" or "MPS GPU not supported"**
 This is handled automatically. The pipeline detects your Mac and uses CPU mode. You'll see a warning message — this is expected and everything will work correctly, just a bit slower.

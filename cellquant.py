@@ -2192,6 +2192,23 @@ CELL_SHAPE_EXPECT: dict[Any, float] = {
     None: 3.0,
 }
 
+# Cell types for which the 3D shape heuristic below has been calibrated.
+#
+# The wrong-voxel signature it looks for is "oblate, with the long axis in the
+# imaging plane". That only distinguishes an anisotropy error from biology when
+# the cells are themselves near-spherical. Adherent mammalian cells are
+# genuinely far wider than they are tall, and bacterial rods genuinely lie in
+# the imaging plane, so for both the signature is present at the CORRECT voxel
+# size and carries no information. Measured on a mammalian z-stack at its
+# metadata voxel size (0.094382 / 0.5 um, independently verified correct):
+# median axis ratio 15.40, |cos Z| 0.00 — indistinguishable from the error the
+# check exists to catch.
+#
+# Rather than invent a threshold for cell types we have no calibration for,
+# stay silent for them. A warning that fires on every correct run teaches users
+# to ignore it, which costs more than the check gains.
+CELL_SHAPE_3D_CALIBRATED = frozenset({"yeast"})
+
 
 def warn_cell_shape(cell_mask: np.ndarray, cfg: dict) -> None:
     """Warn when segmented cells are implausibly shaped. In 3D this flags two
@@ -2245,6 +2262,10 @@ def warn_cell_shape(cell_mask: np.ndarray, cfg: dict) -> None:
             # orientation. The orientation flip (|cosZ|), not the ratio
             # magnitude, is what distinguishes the bug from benign PSF.
             medcos = float(np.median(zcos)) if zcos else 1.0
+            if ct not in CELL_SHAPE_3D_CALIBRATED:
+                # See CELL_SHAPE_3D_CALIBRATED: for adherent or rod-shaped
+                # cells both signatures below fire at the correct voxel size.
+                return
             if med > 1.3 and medcos < 0.3:
                 print(f"[warn] cell shape: cells look flattened along Z (median axis "
                       f"ratio {med:.2f}, long-axis |cos Z|={medcos:.2f} — long axis "

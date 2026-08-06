@@ -128,7 +128,7 @@ The Condensate Index is **off by default** as of the 2026 revision — it was pr
 
 **When it's reliable** — when computed on 3D voxel data with a clean, segmented compartment, and with both channels acquired at non-saturating exposure. cellquant computes it natively on z-stacks when given 3D input.
 
-**When it can mislead** — **most importantly: when computed on maximum intensity projections.** A MIP collapses Z and can make two distinct structures from different Z planes appear to overlap. cellquant emits a loud runtime warning when `--colocalization` is run in 2D mode for this reason. Treat MIP-based Pearson values as advisory and re-run on z-stacks for publication-grade numbers.
+**When it can mislead** — **most importantly: when computed on maximum intensity projections.** A MIP collapses Z and can make two distinct structures from different Z planes appear to overlap. For this reason cellquant **refuses `--colocalization` in 2D mode and exits**; `--allow-2d-colocalization` forces it and stamps every row `projection_derived=True`. Treat forced MIP-based Pearson values as advisory and re-run on z-stacks for publication-grade numbers.
 
 Pearson is also confounded by low signal-to-noise: noisy channels report low R even when the underlying biology is colocalized. And it's a linear measure — a non-linear relationship (e.g. one channel saturating while the other still rises) drives R toward zero even if the structures coincide.
 
