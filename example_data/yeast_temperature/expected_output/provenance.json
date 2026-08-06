@@ -1,0 +1,78 @@
+{
+  "cellquant_version": "1.1.0",
+  "schema_version": 1,
+  "run_at": "2026-08-06T15:24:39-0700",
+  "cwd": "/Users/dpincus/Library/Mobile Documents/com~apple~CloudDocs/Documents/2026 work stuff/AVCGTIA_Neferkara_Ali_Pincus",
+  "command_line": "cellquant.py example_data/yeast_temperature/ 1:Tif6:quantify 2:Nsr1:nucleolus 3:Sis1:quantify --cell-type yeast --out /private/tmp/claude-502/-Users-dpincus-Library-Mobile-Documents-com-apple-CloudDocs-Documents-2026-work-stuff-AVCGTIA-Neferkara-Ali-Pincus/45ad19e5-121c-47fb-81ca-b27946abef23/scratchpad/regen_yeast/ --colocalization --allow-2d-colocalization --nucleolar-proximity Nsr1 --puncta-channels Sis1 Tif6 --trend --filename-pattern MAX_{condition}_rep{replicate}",
+  "argv": [
+    "cellquant.py",
+    "example_data/yeast_temperature/",
+    "1:Tif6:quantify",
+    "2:Nsr1:nucleolus",
+    "3:Sis1:quantify",
+    "--cell-type",
+    "yeast",
+    "--out",
+    "/private/tmp/claude-502/-Users-dpincus-Library-Mobile-Documents-com-apple-CloudDocs-Documents-2026-work-stuff-AVCGTIA-Neferkara-Ali-Pincus/45ad19e5-121c-47fb-81ca-b27946abef23/scratchpad/regen_yeast/",
+    "--colocalization",
+    "--allow-2d-colocalization",
+    "--nucleolar-proximity",
+    "Nsr1",
+    "--puncta-channels",
+    "Sis1",
+    "Tif6",
+    "--trend",
+    "--filename-pattern",
+    "MAX_{condition}_rep{replicate}"
+  ],
+  "mode": "2d",
+  "channels": [
+    {
+      "position": 1,
+      "name": "Tif6",
+      "role": "quantify"
+    },
+    {
+      "position": 2,
+      "name": "Nsr1",
+      "role": "nucleolus"
+    },
+    {
+      "position": 3,
+      "name": "Sis1",
+      "role": "quantify"
+    }
+  ],
+  "cell_type": "yeast",
+  "pretrained_model": "cpsam",
+  "voxel_size_um": null,
+  "voxel_size_provenance": null,
+  "use_gpu": true,
+  "dependencies": {
+    "python": "3.12.13",
+    "numpy": "1.26.4",
+    "scipy": "1.17.1",
+    "pandas": "3.0.3",
+    "matplotlib": "3.10.9",
+    "skimage": "0.26.0",
+    "tifffile": "2026.3.3",
+    "yaml": "6.0.3",
+    "cellpose": "4.1.1",
+    "torch": "2.12.0",
+    "cv2": "4.9.0"
+  },
+  "inputs": [
+    {
+      "name": "MAX_25deg_rep1.tif",
+      "size_bytes": 960304,
+      "mtime": "2026-02-22T18:33:49",
+      "sha256": "6635aa56e00da0c92faf062c34f2e4655cc9a1eddc8ec5bd048b1946bb72a997"
+    },
+    {
+      "name": "MAX_40deg_rep1.tif",
+      "size_bytes": 960304,
+      "mtime": "2026-02-22T18:33:49",
+      "sha256": "7b24f6cfb03f398447fcad7f6a2239723a9b4cdb1b7d5bad8abf38c85b5471fd"
+    }
+  ]
+}

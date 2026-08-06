@@ -1,0 +1,70 @@
+{
+  "cellquant_version": "1.1.0",
+  "schema_version": 1,
+  "run_at": "2026-08-06T15:24:05-0700",
+  "cwd": "/Users/dpincus/Library/Mobile Documents/com~apple~CloudDocs/Documents/2026 work stuff/AVCGTIA_Neferkara_Ali_Pincus",
+  "command_line": "cellquant.py example_data/mammalian_SGs/ 1:DAPI:nucleus 2:G3BP1:quantify 3:PABPC1:quantify --cell-type mammalian --out /private/tmp/claude-502/-Users-dpincus-Library-Mobile-Documents-com-apple-CloudDocs-Documents-2026-work-stuff-AVCGTIA-Neferkara-Ali-Pincus/45ad19e5-121c-47fb-81ca-b27946abef23/scratchpad/regen_mam/ --filename-pattern MAX_{condition}_rep{replicate}",
+  "argv": [
+    "cellquant.py",
+    "example_data/mammalian_SGs/",
+    "1:DAPI:nucleus",
+    "2:G3BP1:quantify",
+    "3:PABPC1:quantify",
+    "--cell-type",
+    "mammalian",
+    "--out",
+    "/private/tmp/claude-502/-Users-dpincus-Library-Mobile-Documents-com-apple-CloudDocs-Documents-2026-work-stuff-AVCGTIA-Neferkara-Ali-Pincus/45ad19e5-121c-47fb-81ca-b27946abef23/scratchpad/regen_mam/",
+    "--filename-pattern",
+    "MAX_{condition}_rep{replicate}"
+  ],
+  "mode": "2d",
+  "channels": [
+    {
+      "position": 1,
+      "name": "DAPI",
+      "role": "nucleus"
+    },
+    {
+      "position": 2,
+      "name": "G3BP1",
+      "role": "quantify"
+    },
+    {
+      "position": 3,
+      "name": "PABPC1",
+      "role": "quantify"
+    }
+  ],
+  "cell_type": "mammalian",
+  "pretrained_model": "cpsam",
+  "voxel_size_um": null,
+  "voxel_size_provenance": null,
+  "use_gpu": true,
+  "dependencies": {
+    "python": "3.12.13",
+    "numpy": "1.26.4",
+    "scipy": "1.17.1",
+    "pandas": "3.0.3",
+    "matplotlib": "3.10.9",
+    "skimage": "0.26.0",
+    "tifffile": "2026.3.3",
+    "yaml": "6.0.3",
+    "cellpose": "4.1.1",
+    "torch": "2.12.0",
+    "cv2": "4.9.0"
+  },
+  "inputs": [
+    {
+      "name": "MAX_arsenite_rep1.tif",
+      "size_bytes": 3840588,
+      "mtime": "2026-02-24T16:30:41",
+      "sha256": "0f873eace8628149dc0d095bc386abc76565187e3d63fd7c0f53b28d84452547"
+    },
+    {
+      "name": "MAX_control_rep1.tif",
+      "size_bytes": 3840588,
+      "mtime": "2026-02-24T16:30:41",
+      "sha256": "49ed51357e1e6b23754f475e49c6b884e4519f04aae1d56c418df1d2da6d2ece"
+    }
+  ]
+}

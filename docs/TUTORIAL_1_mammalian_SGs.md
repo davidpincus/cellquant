@@ -50,7 +50,9 @@ Key points:
 - The filename encodes the condition (`control` or `arsenite`) and replicate number
 - The naming pattern is consistent: `MAX_{condition}_rep{replicate}.tif`
 
-**Using your own images?** They need to be multi-channel TIFFs. If your images are in other formats (`.nd2`, `.czi`, `.lif`), use Fiji/ImageJ to export them as TIFFs first. If you have z-stacks, create maximum intensity projections in Fiji (`Image > Stacks > Z Project > Max Intensity`).
+**Using your own images?** Multi-channel TIFFs work directly. `.nd2`, `.czi` and `.lif` are read natively too when the `bioio` readers are installed (see [INSTALL.md](INSTALL.md)); otherwise export to TIFF from Fiji/ImageJ first.
+
+**If you have z-stacks, do not project them.** cellquant analyses stacks natively in 3D — it detects them from the input and switches pipelines, no Fiji step required. Projecting first discards the Z information and, for colocalization, actively distorts the answer, which is why cellquant refuses that combination by default. This tutorial uses projections because that is what the shipped example data is; [Tutorial 2 Step 8](TUTORIAL_2_yeast_temp.md#step-8-the-same-experiment-in-3d) runs the same kind of analysis on stacks. If you do want 2D from a stack, use `--project-z max` rather than projecting by hand, so the projection is recorded in `config_used.yml`.
 
 ## Step 2: Know your channels
 
@@ -109,26 +111,34 @@ python cellquant.py example_data/mammalian_SGs/ \
   --filename-pattern "MAX_{condition}_rep{replicate}"
 ```
 
-You'll see progress output:
+Running on the 2-image subset that ships with the repository, you'll see:
 
 ```
-Found 9 images in example_data/mammalian_SGs
-GPU: False (or True if you have a CUDA GPU)
+Mode: 2d (auto-detected from MAX_arsenite_rep1.tif)
+[warn] --puncta-compartment-erode-um = 0.5 µm comes from the 'mammalian' preset,
+       but this 2D input carries no pixel size, so the value cannot be
+       interpreted in microns. It is being SKIPPED, not applied as pixels.
+       Pass --voxel-size XY_UM to enable it.
+Found 2 images in example_data/mammalian_SGs
+GPU: True
 Channels: DAPI(nucleus), G3BP1(quantify), PABPC1(quantify)
 Nuclear segmentation: yes
 Cell seg channel: composite (all non-skip)
 Puncta channels: G3BP1, PABPC1
+Puncta compartment: cytosol
 
-=== [1/9] MAX_control_rep1.tif ===
-  Cellpose: cells 14, nuclei 15 ...
-  Kept 12 cells (nuclei filter: 1-4)
-  Puncta: G3BP1 → 8, PABPC1 → 3
-  ...
+=== [1/2] MAX_arsenite_rep1.tif ===
+  9.9s | cells: 11 | keep: 11 | median G3BP1 puncta: 4.0 | median PABPC1 puncta: 4.0
+
+=== [2/2] MAX_control_rep1.tif ===
+  9.7s | cells: 13 | keep: 12 | median G3BP1 puncta: 2.0 | median PABPC1 puncta: 1.0
 ```
 
-(If you're using the 2-image subset, you'll see "Found 2 images" instead.)
+**That first `[warn]` is expected, and worth understanding.** The mammalian preset shrinks the cytosol inward by 0.5 µm before looking for puncta, which stops a bright membrane rim from raising the detection threshold and hiding real granules. Converting 0.5 µm into pixels needs a pixel size, and these example TIFFs carry no resolution metadata — so cellquant disables the erosion and tells you, rather than quietly treating "0.5 µm" as "0.5 pixels" (which, since the smallest step on a pixel grid is a whole pixel, would do nothing at all while looking like it worked).
 
-**How long will it take?** About 1–5 minutes per image on CPU, depending on your computer and image size. On a GPU, ~10–30 seconds per image. The cropped subset images are faster (~1 minute total).
+On your own images, add `--voxel-size 0.094` (your lateral pixel size in microns) to enable it. The distinction cellquant draws is about who made the claim: a micron value **you** typed with no pixel size available aborts the run, because it is an assertion it cannot honour; a value inherited from a preset only warns.
+
+**How long will it take?** The two cropped example images take about 10 seconds each. Full-frame images run roughly 1–5 minutes each on CPU, or 10–30 seconds on a CUDA GPU. On Apple Silicon you will also see `MPS GPU not supported by cpsam Transformer; using CPU` — that is normal, Cellpose's model has no MPS implementation.
 
 ## Step 5: Check the QC overlays
 

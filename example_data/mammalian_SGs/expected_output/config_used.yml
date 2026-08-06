@@ -1,8 +1,12 @@
 exts:
 - .tif
 - .tiff
+- .nd2
+- .czi
+- .lif
 file_pattern: null
-save_masks: false
+save_masks: true
+reuse_masks: false
 seg_downsample: 3
 cpu_threads: 4
 p_low: 1.0
@@ -23,6 +27,8 @@ puncta_filter_round: true
 puncta_min_circularity: 0.4
 puncta_min_solidity: 0.7
 puncta_compartment: cytosol
+compartments: {}
+puncta_compartment_erode_um: 0.0
 qc_downsample: 4
 qc_dpi: 150
 keep_min_nuclei: 1
@@ -31,6 +37,7 @@ parse_from_filename: true
 filename_pattern: MAX_{condition}_rep{replicate}
 condition_map: {}
 condition_order: []
+reference_condition: null
 min_cell_area: 0
 max_cell_area: 0
 nucleolar_opening_radius: 1
@@ -39,10 +46,37 @@ colocalization: false
 colocalization_compartment: whole-cell
 nucleolar_proximity_channel: null
 proximity_threshold_px: 5
-skip_plots: true
+skip_plots: false
 trend: false
+condensate_index: false
+mode: 2d
+axes: null
+voxel_size_xy_um: 1.0
+voxel_size_z_um: 1.0
+project_z: null
+seg_3d_method: stitch
+stitch_threshold: 0.4
+z_crop_center: 0
+puncta_min_volume_vox: 8
+puncta_max_volume_vox: 100000
+min_cell_volume_vox: 0
+max_cell_volume_vox: 0
+nucleolar_min_volume_vox: 10
+proximity_threshold_um: 0.5
+fragmentation_thresholds: 10
+puncta_rolling_ball: {}
+puncta_params_per_channel: {}
+assume_isotropic: false
+override_metadata: false
+allow_2d_colocalization: false
+cell_type: mammalian
+_cli_provided_keys: !!set
+  filename_pattern: null
 _channels:
 - 1:DAPI:nucleus
 - 2:G3BP1:quantify
 - 3:PABPC1:quantify
-_cell_seg_channel: G3BP1
+_puncta_channels:
+- G3BP1
+- PABPC1
+_cell_seg_channel: composite
