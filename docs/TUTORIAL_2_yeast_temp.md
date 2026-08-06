@@ -201,6 +201,87 @@ cells = pd.read_csv("output/cells.csv")
 
 All colocalization, proximity, and morphology metrics are pivoted into `cells.csv` as additional columns, so you can work from a single file.
 
+## Step 8: the same experiment in 3D
+
+Everything above was measured on maximum-intensity projections, and two things about that should have bothered you. You had to pass `--allow-2d-colocalization` to get Pearson and Manders at all. And the nucleolar shape metrics describe the outline of a projected shadow, not the shape of the nucleolus.
+
+`example_data/yeast_3d/` is the same yeast temperature experiment as `example_data/yeast_temperature/` — same strain, same three markers, same question — but as z-stacks instead of projections. Two OME-TIFFs, `25C_rep1.tif` and `40C_rep1.tif`, each 41 z-planes × 3 channels × 256 × 256 pixels (~8 MB). At 0.1057 μm laterally and 0.23 μm axially, that is a 27 × 27 μm field, 9.4 μm deep.
+
+### Run it
+
+```bash
+python cellquant.py example_data/yeast_3d/ \
+  "1:Tif6:quantify" "2:Nsr1:nucleolus" "3:Sis1:quantify" \
+  --cell-type yeast \
+  --out results_3d/ \
+  --seg-downsample 2 \
+  --puncta-channels Tif6 Sis1 \
+  --colocalization \
+  --nucleolar-proximity Nsr1 \
+  --condensate-index \
+  --filename-pattern "{condition}_rep{replicate}"
+```
+
+The interesting part of this command is what it does **not** contain.
+
+**No `--mode 3d`.** cellquant looks at the shape of the first file and decides:
+```
+Mode: 3d (auto-detected from 25C_rep1.tif)
+```
+
+**No `--voxel-size`.** These files carry their physical pixel size in their OME metadata, so cellquant reads it from the file:
+```
+Voxel size: XY=0.1057 µm, Z=0.2300 µm (anisotropy=2.18; from file metadata (first file))
+```
+This is the entire argument for exporting OME-TIFF from your acquisition software rather than a plain TIFF. In 3D a voxel size is not optional — every volume, every distance in microns, and the anisotropy correction on the puncta filter depend on it — so if cellquant can find neither metadata nor `--voxel-size XY_UM Z_UM`, it aborts instead of guessing. (If you do type the values yourself, pass **both**, XY first and Z second.)
+
+**No `--allow-2d-colocalization`.** This is the point of the gate you hit back in Step 2. On a projection, everything along the light path is collapsed into one pixel, so proteins that never share a plane still overlap perfectly and Pearson's R is inflated by geometry rather than biology. In 3D there is nothing to collapse: colocalization is computed over the voxel distribution, so it is allowed by default and `colocalization.csv` carries no `projection_derived` stamp.
+
+Two smaller changes: `--filename-pattern` drops the `MAX_` prefix because these files are stacks, not projections; and `--seg-downsample 2` halves the XY resolution for segmentation (Z is never decimated). The yeast preset segments at full resolution, which in 3D means running Cellpose once per z-plane — 41 times per image. Downsampling keeps the demo short.
+
+**Runtime: about 65 seconds per image**, 129 seconds for the pair, on an Apple Silicon laptop with no GPU. You will still see the `[warn] MPS GPU not supported by cpsam Transformer; using CPU` line from Step 3.
+
+What you should *not* see is a `[warn] cell shape` line. cellquant checks whether your segmented yeast cells look physically plausible for the voxel size you gave it; cells that come out flattened along Z are the signature of an under-scaled Z spacing. Silence here means the metadata was right.
+
+### What changes in the output
+
+The run writes the same file set as before — `cells.csv`, `images.csv`, `colocalization.csv`, `nucleolar_proximity.csv`, `nucleolar_morphology.csv`, `config_used.yml`, `provenance.json`, plus `masks/`, `qc/`, `plots/` (24 superplots) and `prism/`. The columns inside them are what differ.
+
+**Areas become volumes.** Every 2D size column has a 3D counterpart reported twice: once as a raw voxel count, once converted to microns.
+
+| 2D column | 3D columns |
+|-----------|------------|
+| `cell_area_px` | `cell_volume_vox`, `cell_volume_um3` |
+| `nucleus_area_px` | `nucleus_volume_vox`, `nucleus_volume_um3` |
+| `cytosol_area_px` | `cytosol_volume_vox`, `cytosol_volume_um3` |
+| `Sis1_puncta_area_px` | `Sis1_puncta_volume_vox`, `Sis1_puncta_volume_um3` |
+| `nucleolar_area` | `nucleolar_volume_vox`, `nucleolar_volume_um3` |
+
+The `_vox` column is the raw count and cannot be wrong for units reasons. The `_um3` column is that count multiplied by the voxel volume, so it inherits whatever voxel size the run resolved — which is why the banner above is worth reading every time.
+
+**Nucleolar shape metrics go away, and are not replaced.** `nucleolar_solidity`, `nucleolar_circularity` and `nucleolar_eccentricity` do not appear in a 3D run. There is no 3D counterpart to them. Solidity is what Step 5 called "the key metric for nucleolar shape", so this is a real loss, and it is deliberate: the 3D shape descriptors you would reach for instead (sphericity, surface area) depend on surface reconstruction, which is not reliable at 0.23 μm axial sampling with a PSF several times that. Reporting them would produce numbers that look precise and are not. What you get instead is honest size: `nucleolar_volume_um3` and `nucleolar_eq_diameter_um`, the diameter of a sphere with the same volume.
+
+**Proximity switches to microns.** The 2D cutoff is `--proximity-threshold 5` (pixels); in 3D it is `--proximity-threshold-um 0.5` and distances are measured with an anisotropy-aware transform, so a voxel step in Z counts for more than a voxel step in XY. `cells.csv` and `nucleolar_proximity.csv` also gain two sensitivity columns at ±0.1 μm around your cutoff — `Sis1_fraction_proximal_0.4um` and `Sis1_fraction_proximal_0.6um`. Check them. If your conclusion flips between 0.4 and 0.6 μm, it was never about proximity.
+
+**Tuning flags change too.** The Step 4 segmentation fixes `--min-cell-area` and `--max-cell-area` are silently ignored in 3D; use `--min-cell-volume-vox` and `--max-cell-volume-vox` (the yeast preset sets 1500 and 200000). Likewise `--puncta-min-area-px` / `--puncta-max-area-px` become `--puncta-min-volume-vox` / `--puncta-max-volume-vox` (yeast: 4 and 3000), and the 2D roundness filters `--puncta-min-circularity` / `--puncta-min-solidity` do nothing at all in 3D.
+
+### The numbers, and what they are worth
+
+The run finds 45 cells at 25°C and 18 at 40°C — a sparser field, not a segmentation failure — for a `cells.csv` of 63 rows and 66 columns.
+
+| Median per cell | 25°C | 40°C |
+|-----------------|------|------|
+| `Tif6_puncta_n` | 9 | 35 |
+| `Sis1_puncta_n` | 11 | 44 |
+| `cell_volume_um3` | 27.77 | 86.69 |
+| `nucleolar_volume_um3` | 2.58 | 3.88 |
+
+The directions all agree with the 2D analysis: more Sis1 condensates under heat stress, larger cells under growth arrest, a swollen nucleolus. That agreement is the useful result — the same biology survives the change in dimensionality.
+
+**The magnitudes are not.** These crops are small, dense windows chosen so the tutorial runs in two minutes, and a 27 μm field is a handful of cells, not a field of view. Absolute values here differ from what the same command produces on full frames. Treat the table as a demonstration that the columns are populated and point the right way.
+
+**And there are no statistics here at all.** One image per condition means one median per condition, and cellquant needs at least three images per condition on both sides of a comparison before it will run a test — so no `pvalues.csv` is written, exactly as in Step 6. With two conditions and no `--trend`, you also get violin plots rather than the strip plots you saw earlier. This section shows you the workflow. It does not show you a result.
+
 ## Adapting this for your own yeast images
 
 **Different markers?** Change the channel definitions:

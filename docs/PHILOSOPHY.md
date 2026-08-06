@@ -58,11 +58,23 @@ The hardest parameters to set are the ones that depend on biology: How big are c
 
 Cell-type presets (`--cell-type mammalian`, `--cell-type yeast`, `--cell-type bacteria`) encode sensible defaults for each organism. The user picks the preset that matches their cells, and the pipeline handles the rest. Individual parameters can be overridden when needed, but the defaults should work for the majority of cases.
 
+Each preset also carries a second, 3D-only layer — cell-volume limits in voxels, puncta volume limits, the Z-stitching threshold — because the parameters that describe a yeast cell in a single plane do not describe it in a stack. That layer is applied only if the run actually resolves to 3D, and only to parameters still sitting at their built-in default. Anything you set yourself, on the command line or in a `--config` file, is left exactly as you set it.
+
 ### Validate visually, not programmatically
 
 Every image processed by the pipeline produces a QC overlay: the original fluorescence image with segmentation boundaries, puncta markers, and nucleolar outlines drawn on top. The biologist looks at these overlays and evaluates whether the segmentation is correct. This is the validation step. It requires exactly the domain expertise that the biologist already has.
 
 If the overlays look wrong, the biologist adjusts parameters (with AI assistance) and re-runs. This iterative, visual refinement loop is the core workflow. It does not require understanding the algorithm. It requires understanding the biology.
+
+### Physical units are not optional in 3D
+
+A z-stack is not a cube of identical voxels. On almost every confocal the axial step is coarser than the lateral pixel — in the yeast stacks shipped with this guide, 0.23 µm in Z against 0.106 µm in XY, an anisotropy of 2.18. That ratio is not a detail of the file format. It is the exchange rate between the array and the cell.
+
+Suppose cellquant did the convenient thing and assumed 1 µm isotropic voxels whenever it could not find the real ones. The run would finish. It would write `cell_volume_um3` and `nucleolar_volume_um3` columns full of numbers of a believable size, distances in microns, superplots of the expected shape — and every one of those numbers would be wrong by a factor of several hundred, with nothing in the output to say so. That is precisely the failure this document exists to argue against: a result that looks right, survives visual review, and misrepresents the biology. A biologist can see in a QC overlay that a cell was split in two. Nobody can see in any overlay that the Z spacing was guessed.
+
+Nor could you repair it afterwards by rescaling the column. The 3D puncta detector shapes its Laplacian-of-Gaussian kernel to be isotropic in physical space — the Z sigma is the XY sigma scaled by the voxel ratio — so changing the assumed voxel size changes the filter itself, and therefore which objects clear the threshold and get counted at all. A wrong voxel size does not rescale your results. It hands you a different set of puncta.
+
+So cellquant refuses. In 3D with no voxel size in the file metadata and none on the command line, the run stops: pass `--voxel-size XY_UM Z_UM` (lateral first, axial second — and always both values in 3D), or re-export the images with metadata, or opt in explicitly with `--assume-isotropic`, which proceeds under a warning that the volumes and distances are voxel counts wearing micron labels. If what you type disagrees with the file's own metadata by more than 1%, that stops the run too, until you say which one to trust with `--override-metadata`. Refusing to run is the worse user experience and the better scientific one.
 
 ### Statistics should be honest
 

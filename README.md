@@ -2,7 +2,9 @@
 
 **Quantitative fluorescence microscopy for biologists who don't code.**
 
-`cellquant.py` is a single-script pipeline for segmenting cells, counting puncta, measuring colocalization, and computing spatial relationships in multi-channel fluorescence images. You configure it entirely through command-line arguments — no Python editing required. Pair it with an AI assistant (Claude, ChatGPT, etc.) to translate your biology into the right command.
+<https://github.com/davidpincus/cellquant>
+
+`cellquant.py` is a single-script pipeline for segmenting cells, counting puncta, measuring colocalization, and computing spatial relationships in multi-channel fluorescence images — in **2D or natively in 3D**. You configure it entirely through command-line arguments — no Python editing required. Pair it with an AI assistant (Claude, ChatGPT, etc.) to translate your biology into the right command.
 
 ## Quick start
 
@@ -28,19 +30,51 @@ python cellquant.py example_data/mammalian_SGs/ \
 
 ## What it does
 
-Given a folder of multi-channel TIFF maximum intensity projections, `cellquant.py`:
+Given a folder of multi-channel TIFFs — projections or z-stacks — `cellquant.py`:
 
 - **Segments cells** using Cellpose with organism-specific presets
 - **Segments nuclei** (optional, from DAPI or similar stain)
 - **Segments nucleoli** (optional, from nucleolar markers)
 - **Detects puncta** via Laplacian-of-Gaussian in any channel
-- **Computes per-cell metrics**: puncta count, area, intensity, fraction condensed
-- **Measures colocalization**: Pearson's R and Manders' coefficients with Costes thresholding
+- **Computes per-cell metrics**: puncta count, size, intensity, fraction condensed, fragmentation
+- **Measures colocalization**: Pearson's R and Manders' coefficients with Costes thresholding — natively in 3D. On projections this is **refused by default**, because collapsing Z inflates apparent overlap; `--allow-2d-colocalization` forces it and stamps the output `projection_derived=True`
 - **Measures spatial proximity**: distance from puncta to nucleolar boundary
-- **Quantifies nucleolar morphology**: area, solidity, circularity, eccentricity
+- **Quantifies nucleolar morphology**: area, solidity, circularity and eccentricity in 2D; volume and equivalent diameter in 3D. The 2D shape descriptors have no 3D counterpart — they describe the outline of a projected shadow, and the 3D equivalents (sphericity, surface area) are not reliably measurable at typical axial sampling, so they are deliberately not reported
 - **Generates QC overlays** for visual validation
 - **Produces superplots** with replicate-level statistics
 - **Exports Prism-ready CSVs** for further analysis
+
+## 2D or 3D
+
+cellquant decides from the shape of your first image and says so at startup. A folder of projections runs the 2D pipeline; a folder of z-stacks runs natively in 3D — same CLI, same output files, with areas replaced by volumes. Force it with `--mode {auto,2d,3d}`, or flatten stacks yourself with `--project-z max`.
+
+The example data includes a z-stack pair, so this runs on a fresh clone:
+
+```bash
+python cellquant.py example_data/yeast_3d/ \
+  "1:Tif6:quantify" "2:Nsr1:nucleolus" "3:Sis1:quantify" \
+  --cell-type yeast \
+  --out results_3d/ \
+  --seg-downsample 2 \
+  --puncta-channels Tif6 Sis1 \
+  --colocalization \
+  --nucleolar-proximity Nsr1 \
+  --filename-pattern "{condition}_rep{replicate}"
+```
+
+Note there is no `--voxel-size`: those files are OME-TIFFs carrying their own voxel size, and cellquant reads it. **In 3D a voxel size is not optional.** Every volume, every micron distance, and the anisotropy correction on the puncta filter depend on it, so if cellquant finds neither metadata nor `--voxel-size XY_UM Z_UM` it aborts rather than assuming 1 µm cubes. When you do supply it, pass **both** values, lateral first. See [PHILOSOPHY](docs/PHILOSOPHY.md) for why refusing is the better default.
+
+## Where measurements are made
+
+Puncta are detected inside a region, not the whole image — `--puncta-compartment` (default `cytosol`; `whole-cell` under the yeast preset). Beyond the built-ins `whole-cell`, `cell`, `nucleus`, `cytosol` and `nucleolus`, you can define your own by set algebra and use the name anywhere a region is accepted:
+
+```bash
+--compartment "perinuc = cell - nucleolus" --puncta-compartment perinuc
+```
+
+Operators are applied strictly left to right and **need surrounding spaces** — `cell - nucleolus` parses, `cell-nucleolus` does not. Each region you define adds a size column and a `{channel}_{NAME}_mean` column per channel to `cells.csv`.
+
+A term can also be grown or shrunk by a distance: `nucleolus~0.3` grows it by 0.3 µm, `~-0.3` shrinks it. Because that distance is in microns, it requires a known pixel size — on images without one the run aborts rather than silently applying it in pixels, so pass `--voxel-size XY_UM` alongside it. Full grammar in the [CLI reference](docs/CLI_REFERENCE.md).
 
 ## Channel syntax
 
@@ -80,7 +114,9 @@ All preset values can be overridden: `--cell-type yeast --cell-diameter 50`
 |----------|--------|-------------------|
 | [Tutorial 1: Mammalian stress granules](docs/TUTORIAL_1_mammalian_SGs.md) | U2OS ± arsenite | Basics: install, run, interpret, statistics |
 | [Tutorial 2: Yeast temperature series](docs/TUTORIAL_2_yeast_temp.md) | Yeast 25–40°C | Advanced: colocalization, proximity, morphology |
-| [Tutorial 3: Four-condition dose-response](docs/TUTORIAL_3_four_condition.md) | Arsenite at 4 concentrations | Multi-condition designs, positive/negative controls, Bonferroni-corrected pairwise tests |
+| [Tutorial 3: Four-condition dose-response](docs/TUTORIAL_3_four_condition.md) | Arsenite at 4 concentrations — **your own data** | Multi-condition designs, positive/negative controls, Bonferroni-corrected pairwise tests |
+
+Tutorials 1 and 2 run on data included in the repository. Tutorial 3 is a template for an experiment of your own — no dose-response dataset ships with cellquant. [Tutorial 2 ends with a 3D section](docs/TUTORIAL_2_yeast_temp.md#step-8-the-same-experiment-in-3d) that repeats the same experiment on z-stacks.
 
 ## Documentation
 
@@ -121,7 +157,9 @@ The whole point of this tool is that you can use an AI assistant to figure out t
 
 If you use `cellquant` in your research, please cite:
 
-> Neferkara A, Ali A, Pincus D. Cellquant: a vibecoder's guide to image analysis. 2026. Submisssion and DOI pending.
+> Neferkara A, Chaney Winner L, Ali A, Pincus D. Cellquant: a vibecoder's guide to image analysis. 2026. Submission and DOI pending.
+
+Machine-readable metadata is in [CITATION.cff](CITATION.cff) and [.zenodo.json](.zenodo.json).
 
 ## License
 

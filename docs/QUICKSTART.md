@@ -19,7 +19,7 @@ Throughout this guide, `uv run cellquant.py …` and `python cellquant.py …` a
 
 ## Try the included example data
 
-The repository ships a small subset of each dataset (2 images per dataset, cropped to 400×400 pixels) for quick testing. Run this to verify everything works:
+The repository ships a small cropped subset of each dataset for quick testing — 2 images each: `mammalian_SGs/` at 800×800 pixels, `yeast_temperature/` at 400×400 pixels, and `yeast_3d/` at 256×256 pixels × 41 z-planes. Run this to verify everything works:
 
 ```bash
 uv run cellquant.py example_data/mammalian_SGs/ \
@@ -86,6 +86,39 @@ python cellquant.py /path/to/images/ \
   --filename-pattern "MAX_{condition}_rep{replicate}"
 ```
 
+### Option 4: 3D z-stacks
+
+You do not have to tell cellquant your images are stacks — it detects that from the first file and switches to the 3D pipeline. This command runs on the shipped example data, so you can paste it right now:
+
+```bash
+python cellquant.py example_data/yeast_3d/ \
+  "1:Tif6:quantify" "2:Nsr1:nucleolus" "3:Sis1:quantify" \
+  --cell-type yeast \
+  --out results_3d/ \
+  --seg-downsample 2 \
+  --puncta-channels Tif6 Sis1 \
+  --colocalization \
+  --nucleolar-proximity Nsr1 \
+  --condensate-index \
+  --filename-pattern "{condition}_rep{replicate}"
+```
+
+Budget about 65 seconds per image on a Mac CPU. Two things worth noticing:
+
+**No `--allow-2d-colocalization`.** Compare with Option 3. In 3D, colocalization is measured over the actual voxel distribution, so there is nothing to force — the guardrail exists only because a projection collapses Z and makes unrelated proteins look like they overlap.
+
+**No `--voxel-size` either — and that is the point.** These files are OME-TIFFs that carry their own voxel size (XY = 0.1057 µm, Z = 0.23 µm), so cellquant reads it. The startup banner tells you where the number came from:
+
+```
+Voxel size: XY=0.1057 µm, Z=0.2300 µm (anisotropy=2.18; from file metadata (first file))
+```
+
+and `provenance.json` records `resolved_from: metadata`. When your microscope wrote correct metadata, the tool needs no help from you.
+
+**If your own files lack it, you must pass `--voxel-size XY_UM Z_UM` — both values, lateral first, axial second.** Z spacing is almost never equal to XY spacing, and every physical measurement in 3D depends on getting the ratio right: `cell_volume_um3`, nucleolar volume, and every proximity distance in microns. cellquant will not assume 1 µm cubic voxels on your behalf; it aborts instead (see below).
+
+3D output columns are volumes rather than areas — `cell_volume_um3` where a 2D run gives `cell_area_px`.
+
 ## After running
 
 1. **Check QC overlays:** `open /path/to/output/qc/` — do segmentation boundaries look right?
@@ -98,5 +131,7 @@ python cellquant.py /path/to/images/ \
 - **Cells splitting:** add `--cell-diameter 150` (bigger)
 - **Too many false puncta:** add `--log-sigma 1.0` (smaller = more selective)
 - **Apple Silicon warning:** normal, ignore it
+- **`[error] 3D mode but no voxel size is available`:** your stacks carry no voxel metadata, and cellquant refuses to invent one. Three ways forward: pass `--voxel-size XY_UM Z_UM` (lateral first, axial second — look the numbers up in your acquisition software); or `--project-z max` to flatten each stack and run the 2D pipeline instead; or `--assume-isotropic`, which proceeds with 1 µm cubic voxels and puts every volume and distance in **voxel units, not microns**
+- **Running low on disk:** cellquant writes segmentation masks for every image by default — cell, nuclear, nucleolar, and one per puncta channel. They are zlib-compressed now (roughly 85× smaller than uncompressed), but a large 3D dataset still adds up. Add `--no-save-masks` if you do not need them — but then there is nothing for `--reuse-masks` to load, so a re-run has to re-segment from scratch
 
 See [Troubleshooting](TROUBLESHOOTING.md) or ask your AI assistant.

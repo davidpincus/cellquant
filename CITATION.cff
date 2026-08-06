@@ -8,13 +8,10 @@ type: software
 authors:
   - family-names: "Neferkara"
     given-names: "Abani"
-    affiliation: "The University of Chicago"
   - family-names: "Chaney Winner"
     given-names: "Leah"
-    affiliation: "The University of Chicago"
   - family-names: "Ali"
     given-names: "Asif"
-    affiliation: "Indian Institute of Science Education and Research, Pune"
   - family-names: "Pincus"
     given-names: "David"
     affiliation: "The University of Chicago"

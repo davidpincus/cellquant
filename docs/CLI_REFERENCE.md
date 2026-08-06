@@ -81,6 +81,8 @@ cellquant auto-detects 2D vs 3D from input shape. 2D MIPs run the paper-validate
 ```bash
 --mode {auto, 2d, 3d}                 # Force pipeline mode (default: auto-detect)
 --voxel-size XY_UM Z_UM                # Voxel size in microns; read from OME/ImageJ metadata when absent
+--assume-isotropic                     # Proceed with 1.0 µm isotropic voxels when no voxel size is available
+--override-metadata                    # Let --voxel-size win when it disagrees with the file's metadata
 --axes ZCYX                            # Override axis order for unusual TIFF layouts
 --seg-3d-method {stitch, full}         # 3D segmentation strategy
 --stitch-threshold 0.4                 # IoU threshold for Z-stitching
@@ -90,9 +92,14 @@ cellquant auto-detects 2D vs 3D from input shape. 2D MIPs run the paper-validate
 --max-cell-volume-vox 0
 --proximity-threshold-um 0.5           # 3D proximity threshold (microns; replaces --proximity-threshold)
 --project-z {max, sum, mean}           # Project 3D inputs to 2D before analysis (inside cellquant)
+--z-crop-center 0                      # Analyse only N central Z slices (0 = disabled)
 ```
 
-**Voxel size resolution order:** `--voxel-size XY Z` > OME-TIFF / ImageJ metadata > default 1.0 µm. If neither `--voxel-size` nor metadata supplies a real value and you're running in 3D mode, cellquant emits a loud warning at startup. All 3D metrics (`cell_volume_um3`, `nucleolar_volume_um3`, anisotropic LoG, anisotropic distances) require a correct voxel size.
+**Voxel size resolution order:** `--voxel-size XY Z` > OME-TIFF / ImageJ metadata. If neither supplies a value and you are running in 3D, cellquant **aborts**. All 3D metrics (`cell_volume_um3`, `nucleolar_volume_um3`, anisotropic LoG, anisotropic distances) are built on the voxel size, and a plausible-looking wrong number is worse than no number. Note that cellquant only accepts metadata that carries *both* a lateral and an axial size — an OME-TIFF with `PhysicalSizeX` but no `PhysicalSizeZ` counts as no metadata.
+
+**`--assume-isotropic`** is the escape hatch for that abort: the run proceeds with 1.0 µm isotropic voxels and warns that your 3D sizes and distances are then in voxel units, not microns. Use it to get a run out of unlabelled data, not to publish from it.
+
+**`--override-metadata`.** When you pass `--voxel-size` *and* the file carries voxel metadata, the two are compared axis by axis and a disagreement of more than 1 % aborts the run — that is nearly always a typo or the wrong folder. `--override-metadata` forces your value through, and the override is recorded in `provenance.json`.
 
 **`--seg-3d-method stitch`** runs Cellpose 2D per-Z and stitches by IoU; a higher `--stitch-threshold` links less aggressively across Z (fewer over-extended cells). **`--seg-3d-method full`** runs Cellpose with `do_3D=True` and anisotropy-aware processing — more conservative but ~2.3× slower, and on our yeast calibration it did not measurably improve cell roundness (the residual axial elongation is optical PSF, not a segmentation artifact). All cell-type presets therefore default to `stitch`: yeast uses a strict `--stitch-threshold 0.65`; mammalian and bacteria use 0.4.
 
