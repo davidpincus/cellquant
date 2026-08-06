@@ -342,7 +342,7 @@ def main() -> None:
 
 
 # ===========================================================================
-# FOCUSED COLOCALIZATION ANALYSIS (rebuttal result)
+# FOCUSED COLOCALIZATION ANALYSIS
 # Q1 PRESERVATION: does 3D reproduce the published Pearson decline + S3 sig?
 # Q2 ARTIFACT: MIP vs 3D paired per-rep deltas (masks held fixed).
 # ===========================================================================

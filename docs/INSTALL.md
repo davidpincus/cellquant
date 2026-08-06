@@ -86,14 +86,14 @@ You need the cellquant repository, which contains the pipeline script, example d
 
 **Option A: If you have git** (most Macs do):
 ```bash
-git clone https://github.com/pincus-lab/cellquant.git
+git clone https://github.com/davidpincus/cellquant.git
 cd cellquant
 ```
 
 Not sure if you have git? Try running `git --version`. If it prints a version number, you're good. On Mac, it may prompt you to install developer tools — say yes and wait for that to finish, then try the clone again.
 
 **Option B: Download as a zip:**
-Go to https://github.com/pincus-lab/cellquant, click the green "Code" button, click "Download ZIP." Unzip the downloaded file and open your terminal in that folder:
+Go to https://github.com/davidpincus/cellquant, click the green "Code" button, click "Download ZIP." Unzip the downloaded file and open your terminal in that folder:
 ```bash
 cd ~/Downloads/cellquant-main
 ```

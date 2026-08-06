@@ -63,5 +63,5 @@ Recomputed S3 (Pearson, sig vs 25C): Tif6–Sis1 = 30,32C only (both increases);
 - matched_2d = FULL-stack MIP (Step 0) → Q2 magnitudes are an upper bound. Clean cropped-window re-run is a cheap local/cluster job (masks retained).
 - Full 30-rep published-2D (cellquant-on-MIP) NOT run locally — only n=1 stubs present; published Table S2 is the published-2D reference for Q1.
 
-## Rebuttal-ready sentence
+## Summary statement
 Re-running colocalization natively in 3D on the source z-stacks (masks held fixed) preserves the manuscript's central finding — the temperature-dependent loss of Nsr1–Tif6 colocalization, significant only at 36 °C and 40 °C — while revealing that maximum-intensity projection systematically inflates Pearson's R by 0.02–0.17 across all marker pairs (paired MIP−3D > 0 in every condition), confirming that the published MIP values overestimate absolute colocalization even where the temperature trend is qualitatively retained.

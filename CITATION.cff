@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "cellquant: a single-script pipeline for quantitative fluorescence microscopy"
+version: "1.1.0"
+license: MIT
+repository-code: "https://github.com/davidpincus/cellquant"
+type: software
+authors:
+  - family-names: "Neferkara"
+    given-names: "Abani"
+    affiliation: "The University of Chicago"
+  - family-names: "Chaney Winner"
+    given-names: "Leah"
+    affiliation: "The University of Chicago"
+  - family-names: "Ali"
+    given-names: "Asif"
+    affiliation: "Indian Institute of Science Education and Research, Pune"
+  - family-names: "Pincus"
+    given-names: "David"
+    affiliation: "The University of Chicago"

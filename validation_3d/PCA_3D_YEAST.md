@@ -35,5 +35,5 @@ Added on the same standardized 37-feature matrix, published params (`umap-learn`
 - `validation_3d/pca_3d_loadings.csv`, `pca_3d_variance_explained.csv`, `pca_3d_scores.csv` (now incl. UMAP1/UMAP2)
 - script: `validation_3d/09_pca_3d_yeast.py` (needs sklearn+umap env, e.g. `miniforge3/envs/bm_seq`; umap-learn installed via conda-forge)
 
-## Rebuttal sentence
+## Summary statement
 Re-deriving the 39-feature single-cell PCA on the native 3D metrics (37 comparable features) recovers the published multivariate temperature phenotype — the same condensate-index/intensity loadings on PC1 and a continuous temperature trajectory along PC2 culminating in a separated 40 °C state — with marginally stronger temperature separation than the MIP analysis, and the separation survives (indeed strengthens) when all fragile puncta-derived features are removed.

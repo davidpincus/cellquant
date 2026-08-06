@@ -5,9 +5,9 @@ Apple Silicon CPU runs Cellpose-cpsam at ~75 s per 1192×1200 2D slice; on a
 land in the same ballpark because the cost is in the per-slice forward
 passes, of which stitch does 71 and full does ~71 effective). That's
 infeasible for batch analysis on the laptop a typical biologist owns, and
-infeasible for the rebuttal validation. This document records the config
+infeasible for the validation runs. This document records the config
 that makes yeast 3D tractable on CPU and the rationale behind each setting,
-so future runs (and reviewers) can interpret the trade-offs.
+so future runs can interpret the trade-offs.
 
 ## The two levers
 

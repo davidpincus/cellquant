@@ -1,8 +1,8 @@
 """validation_3d/05_compare_mammalian_coloc.py
 
-Focused colocalization comparison for the mammalian HCT116 stress-granule data
-(R3 rebuttal). Pair = G3BP1_vs_PABPC1. Compartment = whole-cell (matches the
-published mammalian run; see config_used.yml).
+Focused colocalization comparison for the mammalian HCT116 stress-granule data.
+Pair = G3BP1_vs_PABPC1. Compartment = whole-cell (matches the published
+mammalian run; see config_used.yml).
 
 Two axes from identical source voxels / same cellquant version:
   - 3d          : native z-stack voxel-wise Pearson/Manders per cell.

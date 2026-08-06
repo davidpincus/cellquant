@@ -1,7 +1,7 @@
 """validation_3d/06_timing_report.py
 
 Aggregates per-image timing from outputs_combined/run_summary.csv into a
-markdown report suitable for the manuscript's methods note or rebuttal.
+markdown report suitable for the manuscript's methods note.
 """
 from __future__ import annotations
 

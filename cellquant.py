@@ -12,6 +12,15 @@
 #   "cellpose>=4.0",
 #   "opencv-python-headless<4.10",
 #   "torch",
+#   # Multiformat input (ND2/CZI/LIF). Kept in step with requirements.txt and
+#   # environment.yml: without these, `uv run cellquant.py` reads TIFF only and
+#   # refuses every other format at load time.
+#   "bioio",
+#   "bioio-ome-tiff",
+#   "bioio-nd2",
+#   "bioio-czi",
+#   "bioio-lif",
+#   "bioio-tifffile",
 # ]
 # ///
 """
@@ -2619,6 +2628,19 @@ def compute_fragmentation_indices(
 # ---------------------------------------------------------------------------
 # Quantification — dynamic per-channel metrics
 # ---------------------------------------------------------------------------
+def _channel_puncta_compartment(cfg: dict, ch_name: str, default: str) -> str:
+    """The region a channel's puncta were detected in.
+
+    Mirrors the resolution done when the puncta mask is built, so per-cell
+    metrics normalise against the same region rather than the whole cell.
+    """
+    try:
+        return resolve_per_channel_cfg(cfg, ch_name).get(
+            "puncta_compartment", default) or default
+    except Exception:
+        return default
+
+
 def per_cell_metrics(
     image_name: str,
     images: dict[str, np.ndarray],
@@ -2738,10 +2760,20 @@ def per_cell_metrics(
             ch_puncta_vals = ch_img[puncta_bin]
             puncta_int = float(ch_puncta_vals.sum()) if ch_puncta_vals.size else 0.0
 
-            if compartment == "cytosol":
+            # Normalise against the region the puncta were actually detected
+            # in — including a --compartment name and any per-channel
+            # override. Falling back to the whole cell here would divide a
+            # numerator measured in one region by a denominator measured in
+            # another, silently, under an unchanged column name.
+            ch_compartment = _channel_puncta_compartment(cfg, ch_name, compartment)
+            if ch_compartment == "cytosol":
                 comp_bin = cyt_bin
-            elif compartment == "nucleus":
+            elif ch_compartment == "nucleus":
                 comp_bin = nuc_bin
+            elif ch_compartment in user_comps:
+                comp_bin = user_comps[ch_compartment] & cell_bin
+            elif ch_compartment == "nucleolus" and nucleolar_mask is not None:
+                comp_bin = (nucleolar_mask > 0) & cell_bin
             else:
                 comp_bin = cell_bin
             comp_total = float(ch_img[comp_bin].sum()) if np.any(comp_bin) else 0.0
@@ -4415,23 +4447,25 @@ def main() -> None:
             nucleolar_mask=nucleolar_mask if nucleolar_mask.max() > 0 else None,
             puncta_distance_colors=puncta_dist_colors)
 
-        # Save masks
+        # Save masks. Label images are mostly flat runs of one value, so zlib
+        # costs little time and shrinks them by one to two orders of magnitude;
+        # written raw, a 30-image 3D run produced ~110 GB of masks.
         if bool(cfg["save_masks"]):
             tiff.imwrite(
                 str(mask_dir / f"{p.stem}_cellmask.tif"),
-                cell_mask.astype(np.uint16))
+                cell_mask.astype(np.uint16), compression="zlib")
             if has_nuclei:
                 tiff.imwrite(
                     str(mask_dir / f"{p.stem}_nucmask.tif"),
-                    nuc_mask.astype(np.uint16))
+                    nuc_mask.astype(np.uint16), compression="zlib")
             if nucleolar_mask.max() > 0:
                 tiff.imwrite(
                     str(mask_dir / f"{p.stem}_nucleolarmask.tif"),
-                    nucleolar_mask.astype(np.uint8))
+                    nucleolar_mask.astype(np.uint8), compression="zlib")
             for ch_name, pmask in puncta_masks.items():
                 tiff.imwrite(
                     str(mask_dir / f"{p.stem}_{ch_name}_punctamask.tif"),
-                    pmask.astype(np.uint16))
+                    pmask.astype(np.uint16), compression="zlib")
 
         dt = time.time() - t0
         if not cells_df.empty:

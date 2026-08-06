@@ -1,0 +1,42 @@
+{
+  "title": "cellquant: a single-script pipeline for quantitative fluorescence microscopy",
+  "description": "cellquant is a single-script command-line pipeline for quantitative multi-channel fluorescence microscopy. It performs cell and nuclear segmentation (Cellpose), puncta detection, per-cell intensity and condensation metrics, colocalization, and nucleolar proximity analysis, in either two or three dimensions. The interface is entirely text based, so the exact command used to generate any result can be recorded and re-executed. Accompanies the manuscript &quot;Cellquant: a vibecoder's guide to image analysis&quot;.",
+  "upload_type": "software",
+  "license": "mit",
+  "version": "1.1.0",
+  "creators": [
+    {
+      "name": "Neferkara, Abani",
+      "affiliation": "The University of Chicago"
+    },
+    {
+      "name": "Chaney Winner, Leah",
+      "affiliation": "The University of Chicago"
+    },
+    {
+      "name": "Ali, Asif",
+      "affiliation": "Indian Institute of Science Education and Research, Pune"
+    },
+    {
+      "name": "Pincus, David",
+      "affiliation": "The University of Chicago"
+    }
+  ],
+  "keywords": [
+    "fluorescence microscopy",
+    "image analysis",
+    "cell segmentation",
+    "Cellpose",
+    "colocalization",
+    "biomolecular condensates",
+    "reproducibility",
+    "Python"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/davidpincus/cellquant",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    }
+  ]
+}

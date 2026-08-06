@@ -14,7 +14,7 @@
 # Configurable via environment:
 #   HCT116_DIR    full-res 3-channel MAX_*.tif dir (1192x1200)   [default: <repo>/SG_zstacks/MIPs]
 #   OUT_ROOT      where out_cq/ out_cp/ cp_input/ compare_out/ go [default: <this dir>]
-#   CELLQUANT_PY  python with cellquant's deps (tifffile/numpy)   [default: miniforge cellquant env]
+#   CELLQUANT_PY  python with cellquant's deps (tifffile/numpy)   [default: whatever `python3` resolves to]
 #   COMPARE_PY    python for compare_tools.py (numpy/scipy/pandas/mpl/skimage/tifffile) [default: CELLQUANT_PY]
 #   CP_IMAGE      CellProfiler docker image                        [default: cellprofiler/cellprofiler:4.2.6]
 set -euo pipefail
@@ -24,7 +24,9 @@ REPO="$(cd "$HERE/.." && pwd)"
 
 HCT116_DIR="${HCT116_DIR:-$REPO/SG_zstacks/MIPs}"
 OUT_ROOT="${OUT_ROOT:-$HERE}"
-CELLQUANT_PY="${CELLQUANT_PY:-/Users/dpincus/miniforge3/envs/cellquant/bin/python}"
+# Default to the active interpreter: activate the cellquant env (or any env with
+# its dependencies) before running, or point CELLQUANT_PY at one explicitly.
+CELLQUANT_PY="${CELLQUANT_PY:-$(command -v python3 || true)}"
 COMPARE_PY="${COMPARE_PY:-$CELLQUANT_PY}"
 CP_IMAGE="${CP_IMAGE:-cellprofiler/cellprofiler:4.2.6}"
 CHANNELS=("DAPI" "G3BP1" "PABPC1")   # channel order 1,2,3 (paper's validated invocation)

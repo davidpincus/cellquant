@@ -1,13 +1,13 @@
 # Yeast 3D validation — handoff for new chat
 
-Self-contained brief for picking up the cellquant rebuttal work mid-stream.
+Self-contained brief for picking up the yeast 3D validation work mid-stream.
 Skim sections 1–3 to understand the situation; sections 4–7 are reference.
 
 ---
 
 ## 1. Project + working directory
 
-- **Project**: `cellquant` JCB rebuttal. Single-file Python pipeline
+- **Project**: `cellquant` 3D validation. Single-file Python pipeline
   (`cellquant.py`, ~3900 lines after recent edits) targeting biologists
   using AI assistants. Multi-channel fluorescence microscopy quantification:
   cell/nucleus/nucleolus segmentation (Cellpose-cpsam), puncta detection,
@@ -28,9 +28,9 @@ Skim sections 1–3 to understand the situation; sections 4–7 are reference.
 
 ## 2. What this work was
 
-### The motivating problem (R3's rebuttal concern)
+### The motivating problem
 The yeast 3D pipeline targets the same biologists as the published 2D
-pipeline. Reviewer 3 raised the GPU barrier: if 3D analysis requires a CUDA
+pipeline, which raises a GPU barrier: if 3D analysis requires a CUDA
 box, non-cluster users can't reach it. We needed to (a) validate that 3D
 gives the same biological answers as the published 2D analysis on the
 yeast temperature series, and (b) demonstrate the 3D mode is **CPU-feasible**
@@ -222,7 +222,7 @@ not fixed). This is encoded in `setup_paths.YEAST_Z_CROP_CENTER = 41`.
 
 ## 6. What's worth doing next (suggestions, not promises)
 
-1. **Multi-rep follow-up if reviewer asks for power**: extend the batch
+1. **Multi-rep follow-up for statistical power**: extend the batch
    to 3 reps/temperature (15 images) on the same config. ~13 hours of
    wall time. Wilcoxon would actually evaluate at n=3. This is the
    single most defensible improvement to the validation strength.

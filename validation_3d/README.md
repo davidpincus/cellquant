@@ -1,7 +1,7 @@
 # 3D validation harness
 
-Scripts that reproduce the 2D-vs-3D validation analysis for cellquant (the JCB
-revision). Run outputs, logs, and large image data are gitignored; only the
+Scripts that reproduce the 2D-vs-3D validation analysis for cellquant. Run
+outputs, logs, and large image data are gitignored; only the
 `.py`/`.md` code and this README are tracked as the reproducibility record.
 
 ## Configuring the data root

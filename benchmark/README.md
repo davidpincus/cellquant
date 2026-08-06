@@ -1,6 +1,6 @@
 # cellquant vs CellProfiler agreement benchmark (HCT116 stress granules)
 
-**Part A of the Figure 5 replacement / response to reviewer point R2.4.** Runs
+**Part A of the Figure 5 tool-agreement analysis.** Runs
 `cellquant` and CellProfiler *independently* on the same HCT116 MIPs, matches cells
 by centroid, and reports per-cell agreement on three measures: G3BP1 puncta count,
 puncta area fraction, and mean G3BP1 intensity. The claim under test is

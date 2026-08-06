@@ -52,16 +52,25 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
+from matplotlib.lines import Line2D
 
 # Illustrator-friendly SVG/PDF: keep text as TEXT (not outlined paths) so panel
 # labels and tick labels stay editable, and use TrueType rather than Type 3.
+# Matches 11_figure3_yeast_3d.py and 13_figure2_mammalian_2d.py so all three
+# figures set the same type in print.
+FONT_SIZE = 12
+# The two dense label stacks -- panel C's 12 feature names and panel D's 15
+# heatmap rows -- would collide at 12 pt in any sane panel width, so they get
+# their own smaller size. Everything a reader actually reads is FONT_SIZE.
+DENSE_LABEL_SIZE = 9
+
 matplotlib.rcParams.update({
     "svg.fonttype": "none",
     "pdf.fonttype": 42,
     "ps.fonttype": 42,
     "font.family": "sans-serif",
     "font.sans-serif": ["Helvetica", "Arial", "DejaVu Sans"],
-    "font.size": 10,
+    "font.size": FONT_SIZE,
     "axes.linewidth": 0.8,
     # U+2212 MINUS SIGN often renders as a missing-glyph box in Illustrator;
     # fall back to ASCII hyphen so axis labels survive the round trip.
@@ -78,6 +87,20 @@ def save_all(fig, stem: Path):
 
 TEMP_ORDER = ["25C", "30C", "32C", "36C", "40C"]
 TEMP_VALUE = {"25C": 25, "30C": 30, "32C": 32, "36C": 36, "40C": 40}
+
+# Explicit temperature palette, replacing a straight sample of `coolwarm`.
+# A diverging map puts its lightest colour at the midpoint, so 32 C came out
+# near-white (0.865 grey) and vanished -- both against the page and against the
+# 0.90 grey context cloud in the UMAP small multiples. The two flanking steps
+# were nearly as pale. These five hold the blue->red temperature reading but
+# keep luminance roughly constant, so every condition is visible at 2-3 px.
+TEMP_COLORS = {
+    "25C": "#3B4CC0",   # coolwarm endpoint, already dark
+    "30C": "#6A8BD8",   # darkened from #8DB0FE
+    "32C": "#5E5E5E",   # was #DCDCDC -- the invisible one
+    "36C": "#E07B54",   # darkened from #F6A385
+    "40C": "#B40426",   # coolwarm endpoint, already dark
+}
 
 METADATA = {"image", "condition", "replicate", "cell_id", "n_nuclei", "keep", "rep_id"}
 
@@ -288,17 +311,21 @@ def main():
     # =====================  MAIN FIGURE (A-E)  =====================
     # Plot the PC that actually carries temperature on the y-axis.
     pcx, pcy = 0, (lead_n if lead_n != 0 else 1)
-    cmap = plt.cm.coolwarm
-    colors = {t: cmap(i / (len(TEMP_ORDER) - 1)) for i, t in enumerate(TEMP_ORDER)}
+    colors = {t: matplotlib.colors.to_rgba(TEMP_COLORS[t]) for t in TEMP_ORDER}
     cond = cells["condition"].values
     n_per_t = {t: int((cond == t).sum()) for t in TEMP_ORDER}
 
-    fig = plt.figure(figsize=(15, 11))
-    gs = GridSpec(3, 6, figure=fig, height_ratios=[1.15, 0.85, 1.0],
-                  hspace=0.42, wspace=0.55)
+    # Portrait. The old 15x11 landscape had to squeeze A, C and D into one row,
+    # which is what drove panel C's feature names under its own title. Here each
+    # of those gets half the page width, and the six UMAP panels take two rows of
+    # three instead of one row of six.
+    fig = plt.figure(figsize=(10, 15))
+    gs = GridSpec(5, 6, figure=fig,
+                  height_ratios=[1.10, 1.10, 1.00, 1.00, 0.80],
+                  hspace=0.45, wspace=0.55)
 
     # --- A: PCA scatter + centroid trajectory ---
-    axA = fig.add_subplot(gs[0, 0:2])
+    axA = fig.add_subplot(gs[0, 0:3])
     for t in TEMP_ORDER:
         m = cond == t
         axA.scatter(sc_n[m, pcx], sc_n[m, pcy], c=[colors[t]], label=t, s=4,
@@ -310,52 +337,81 @@ def main():
     axA.set_xlabel(f"PC{pcx+1} ({var_n[pcx]*100:.1f}%)")
     axA.set_ylabel(f"PC{pcy+1} ({var_n[pcy]*100:.1f}%)")
     axA.set_title(f"A   Single-cell PCA, {len(nat_cols)} 3D features", loc="left",
-                  fontweight="bold")
-    axA.legend(markerscale=4, frameon=False, fontsize=9, loc="best")
+                  fontweight="bold", pad=10)
+    # Hand-built handles: reusing the scatter artists inherits their alpha=0.35,
+    # which washed the swatches out to roughly the colours this palette was
+    # introduced to fix. Pinned upper-left rather than "best" -- the cloud
+    # shifts between reruns and the legend was landing on data.
+    axA.legend(handles=[Line2D([0], [0], marker="o", linestyle="none",
+                               markerfacecolor=colors[t], markeredgecolor="none",
+                               markersize=7, label=t) for t in TEMP_ORDER],
+               frameon=False, fontsize=FONT_SIZE - 2, loc="upper left",
+               borderaxespad=0.3, labelspacing=0.35, handletextpad=0.4)
+
+    # --- E: the temperature axis vs temperature ---
+    axE = fig.add_subplot(gs[0, 3:6])
 
     # --- C: top PC loadings for the temperature-carrying PC ---
-    axC = fig.add_subplot(gs[0, 2:4])
+    axC = fig.add_subplot(gs[1, 0:3])
     key = f"PC{pcy+1}_loading"
     top = load.reindex(load[key].abs().sort_values(ascending=False).index).head(12)
     yp = np.arange(len(top))[::-1]
     axC.barh(yp, top[key], color=["#b2182b" if v > 0 else "#2166ac" for v in top[key]])
-    axC.set_yticks(yp); axC.set_yticklabels(top["label"], fontsize=8)
+    axC.set_yticks(yp)
+    axC.set_yticklabels(top["label"], fontsize=DENSE_LABEL_SIZE)
     axC.axvline(0, color="grey", lw=0.6)
     axC.set_xlabel(f"PC{pcy+1} loading")
+    # Titles anchored to the FIGURE-left of the panel rather than the axes-left,
+    # so a long feature name cannot run underneath its own title.
     axC.set_title(f"C   Top PC{pcy+1} loadings (temperature axis)", loc="left",
-                  fontweight="bold")
+                  fontweight="bold", pad=10)
 
     # --- D: loadings heatmap PC1-PC5 ---
-    axD = fig.add_subplot(gs[0, 4:6])
+    axD = fig.add_subplot(gs[1, 3:6])
     topf = load.reindex(load[key].abs().sort_values(ascending=False).index).head(15)
     H = topf[[f"PC{i+1}_loading" for i in range(5)]].values
     im = axD.imshow(H, cmap="RdBu_r", vmin=-0.45, vmax=0.45, aspect="auto")
-    axD.set_yticks(range(len(topf))); axD.set_yticklabels(topf["label"], fontsize=7)
+    axD.set_yticks(range(len(topf)))
+    axD.set_yticklabels(topf["label"], fontsize=DENSE_LABEL_SIZE)
+    # Row names on the RIGHT. On the left they are ~1.5 in long and ran straight
+    # across the gutter into panel C's bars; there is no column gap wide enough
+    # to hold them that does not waste the page.
+    axD.yaxis.tick_right()
     axD.set_xticks(range(5)); axD.set_xticklabels([f"PC{i+1}" for i in range(5)])
-    axD.set_title("D   Feature loadings, PC1-PC5", loc="left", fontweight="bold")
-    fig.colorbar(im, ax=axD, fraction=0.046, pad=0.04)
+    axD.tick_params(axis="x", labelsize=FONT_SIZE - 2)
+    axD.set_title("D   Feature loadings, PC1-PC5", loc="left", fontweight="bold",
+                  pad=10)
+    # Colorbar moved below the heatmap; on the right it would sit between the
+    # map and its own row labels.
+    cb = fig.colorbar(im, ax=axD, orientation="horizontal",
+                      fraction=0.055, pad=0.16, aspect=32)
+    cb.ax.tick_params(labelsize=FONT_SIZE - 3)
+    cb.set_label("loading", fontsize=FONT_SIZE - 2)
 
     # --- B: UMAP merge + per-temperature small multiples ---
     # Point size scales with 1/sqrt(n) so the low-n conditions (32 C has 916
     # cells vs 2577 at 36 C) stay legible instead of vanishing into the grey.
     n_ref = max(n_per_t.values())
-    axM = fig.add_subplot(gs[1, 0])
+    # Six panels over two rows of three: (all cells), then the five conditions.
+    slots = [(2, 0), (2, 2), (2, 4), (3, 0), (3, 2), (3, 4)]
+    axM = fig.add_subplot(gs[slots[0][0], slots[0][1]:slots[0][1] + 2])
     for t in TEMP_ORDER:
         m = cond == t
         axM.scatter(emb[m, 0], emb[m, 1], c=[colors[t]], s=3, alpha=0.45,
                     linewidths=0, rasterized=True)
-    axM.set_title("B   UMAP (all cells)", loc="left", fontweight="bold", fontsize=10)
-    axM.set_xlabel("UMAP1", fontsize=9); axM.set_ylabel("UMAP2", fontsize=9)
+    axM.set_title("B   UMAP (all cells)", loc="left", fontweight="bold",
+                  fontsize=FONT_SIZE, pad=8)
+    axM.set_xlabel("UMAP1", fontsize=FONT_SIZE - 2)
+    axM.set_ylabel("UMAP2", fontsize=FONT_SIZE - 2)
     axM.set_xticks([]); axM.set_yticks([])
     xlim, ylim = axM.get_xlim(), axM.get_ylim()
-    # 32 C sits at the white midpoint of coolwarm and would vanish against the
-    # grey background, so focal points carry a thin darkened outline of their
-    # own hue and the background is lightened.
+
     def darken(c, f=0.55):
         return tuple(np.clip(np.asarray(c[:3]) * f, 0, 1))
 
     for i, t in enumerate(TEMP_ORDER):
-        ax = fig.add_subplot(gs[1, i + 1])
+        r, c0 = slots[i + 1]
+        ax = fig.add_subplot(gs[r, c0:c0 + 2])
         ax.scatter(emb[:, 0], emb[:, 1], c="0.90", s=2, alpha=0.55,
                    linewidths=0, rasterized=True)
         m = cond == t
@@ -363,11 +419,10 @@ def main():
         ax.scatter(emb[m, 0], emb[m, 1], c=[colors[t]], s=s_t, alpha=0.85,
                    edgecolors=[darken(colors[t])], linewidths=0.28,
                    rasterized=True)
-        ax.set_title(f"{t}  (n={n_per_t[t]})", fontsize=9)
+        ax.set_title(f"{t}  (n={n_per_t[t]})", fontsize=FONT_SIZE - 1, pad=6)
         ax.set_xlim(xlim); ax.set_ylim(ylim); ax.set_xticks([]); ax.set_yticks([])
 
-    # --- E: the temperature axis vs temperature ---
-    axE = fig.add_subplot(gs[2, 0:2])
+    # --- E: the temperature axis vs temperature (axes created with row 0) ---
     rng = np.random.default_rng(0)
     for t in TEMP_ORDER:
         m = cond == t
@@ -384,43 +439,43 @@ def main():
     axE.set_ylabel(f"PC{pcy+1} score")
     axE.set_title(f"E   PC{pcy+1} tracks temperature "
                   f"(Spearman $\\rho$ = {rho_n[pcy]:+.2f})", loc="left",
-                  fontweight="bold")
+                  fontweight="bold", pad=10)
 
-    # Reserve the right half of the bottom row for the hand-drawn model panel.
+    # Reserve the whole bottom row for the hand-drawn model panel.
     # Delete this placeholder in Illustrator once the schematic is dropped in.
-    axPH = fig.add_subplot(gs[2, 2:6])
+    axPH = fig.add_subplot(gs[4, 0:6])
     axPH.set_xticks([]); axPH.set_yticks([])
     for s in axPH.spines.values():
         s.set_linestyle((0, (6, 6))); s.set_color("0.75"); s.set_linewidth(0.9)
     axPH.text(0.5, 0.5, "F   model schematic\n(placeholder — delete in Illustrator)",
-              ha="center", va="center", color="0.6", fontsize=11)
+              ha="center", va="center", color="0.6", fontsize=FONT_SIZE)
 
     save_all(fig, args.outdir / "Figure4_PCA_UMAP_3D")
 
     # =====================  SUPPLEMENT (scree + which-PC) =====================
-    figS = plt.figure(figsize=(9.5, 3.8))
-    gsS = GridSpec(1, 2, figure=figS, wspace=0.32)
+    figS = plt.figure(figsize=(11, 4.4))
+    gsS = GridSpec(1, 2, figure=figS, wspace=0.28)
 
     axS1 = figS.add_subplot(gsS[0, 0])
     xs = np.arange(1, 11)
-    axS1.bar(xs, var_n[:10] * 100, color="steelblue")
-    axS1.plot(xs, np.cumsum(var_n[:10]) * 100, "o-", color="firebrick", ms=4,
+    axS1.bar(xs, var_n[:10] * 100, color="#4C72B0")
+    axS1.plot(xs, np.cumsum(var_n[:10]) * 100, "o-", color="#B40426", ms=5,
               label="cumulative")
     axS1.set_xticks(xs); axS1.set_xlabel("Principal component")
     axS1.set_ylabel("Variance explained (%)")
-    axS1.legend(frameon=False, fontsize=9)
-    axS1.set_title("A   Scree", loc="left", fontweight="bold")
+    axS1.legend(frameon=False, fontsize=FONT_SIZE - 2)
+    axS1.set_title("A   Variance explained", loc="left", fontweight="bold", pad=10)
 
     axS2 = figS.add_subplot(gsS[0, 1])
     axS2.bar(np.arange(1, 6), rho_n[:5],
-             color=["#b2182b" if i == pcy else "#bbbbbb" for i in range(5)])
+             color=["#B40426" if i == pcy else "#bbbbbb" for i in range(5)])
     axS2.axhline(0, color="k", lw=0.6)
     axS2.set_xticks(np.arange(1, 6))
     axS2.set_xticklabels([f"PC{i+1}" for i in range(5)])
     axS2.set_ylabel("Spearman $\\rho$ vs temperature")
     axS2.set_ylim(-1, 1)
     axS2.set_title("B   Which component carries temperature", loc="left",
-                   fontweight="bold")
+                   fontweight="bold", pad=10)
 
     save_all(figS, args.outdir / "FigureS_PCA_diagnostics_3D")
 
