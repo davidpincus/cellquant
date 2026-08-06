@@ -105,6 +105,24 @@ cellquant auto-detects 2D vs 3D from input shape. 2D MIPs run the paper-validate
 
 **`--project-z`** is for users who have 3D acquisition but want 2D analysis (e.g. legacy pipelines, lower-spec hardware). When set on 3D input, cellquant projects each stack with the chosen reduction (max-intensity, sum, or mean) and runs the 2D pipeline. No external Fiji/napari step needed.
 
+## 2D pixel size
+
+Two dimensions need no Z spacing, but they still need a **lateral** pixel size, because some parameters are expressed in microns. cellquant reads it from OME/ImageJ metadata; `--voxel-size XY_UM` supplies it directly (in 2D the single lateral value is enough).
+
+Exactly two things depend on it:
+
+- `--puncta-compartment-erode-um`
+- any `~UM` pad inside a `--compartment` definition
+
+If neither metadata nor `--voxel-size` supplies a pixel size, what happens depends on **who asked for the micron value**:
+
+| Source of the value | Behaviour |
+|---|---|
+| You typed it on the command line | The run **aborts**. It is an assertion about physical units that cannot be honoured. |
+| It came from a cell-type preset | The run **warns loudly and skips it** (treated as 0), so a first run on unlabelled data is not blocked. |
+
+The asymmetry matters because a micron value silently reinterpreted as pixels is not merely imprecise — anything below 1.0 becomes a no-op, since the smallest nonzero distance on a pixel grid is one pixel. The shipped 2D example data carries no resolution metadata, so the mammalian preset's 0.5 µm erosion is skipped there and says so.
+
 ## Input formats
 
 ```bash
@@ -152,7 +170,11 @@ Metadata extracted from filenames appears in all output CSVs and determines how 
 --condition-order control arsenite
 ```
 
-`--condition-map` renames extracted condition strings. `--condition-order` sets the display order in plots (default: alphabetical/numeric).
+```bash
+--reference-condition control
+```
+
+`--condition-map` renames extracted condition strings. `--condition-order` sets the display order in plots (default: alphabetical/numeric). `--reference-condition` names the condition every other condition is tested against; without it, comparisons are anchored on the first condition in the order.
 
 ## Segmentation parameters
 
@@ -205,11 +227,16 @@ By default, the pipeline uses the `nucleus` channel for cell segmentation. If no
 --puncta-min-circularity 0.0    # Minimum punctum circularity (0–1)
 --puncta-min-solidity 0.0       # Minimum punctum solidity (0–1)
 --puncta-compartment REGION     # a built-in or a name defined with --compartment
+--puncta-compartment-erode-um 0 # shrink that region by N microns before detecting
 ```
 
 **Default behavior:** If `--puncta-channels` is not specified, puncta are automatically detected in all `quantify` channels. Use `--no-puncta` to suppress puncta detection and compute only intensity metrics. Use `--puncta-channels` to override the default and detect puncta in specific channels only.
 
 `--puncta-compartment cytosol` restricts puncta detection to the cytoplasmic region (cell minus nucleus). Requires a `nucleus` channel. Falls back to `whole-cell` if no nucleus is available.
+
+`--puncta-compartment-erode-um` shrinks that region inward by a given distance before detection, which keeps a bright membrane rim from inflating the threshold and suppressing real puncta. It is **in microns** (default 0; the mammalian preset sets 0.5), so it needs a known pixel size — in 3D the erosion is anisotropy-aware. If you type a value and no pixel size is available the run aborts; if the value came from a preset it warns and is skipped. See [2D pixel size](#2d-pixel-size) and [TROUBLESHOOTING](TROUBLESHOOTING.md).
+
+Note that `{channel}_frac_intensity_in_puncta` is normalised against whichever region puncta were detected in, so changing `--puncta-compartment` changes both the numerator and the denominator.
 
 ### Defining your own regions
 
@@ -323,9 +350,14 @@ The pipeline automatically selects plot type based on number of conditions:
 
 ```bash
 --no-save-masks                 # Don't save segmentation masks
+--reuse-masks                   # Load saved masks instead of re-running Cellpose
 --qc-downsample 2               # Downsample factor for QC overlay images
 --qc-dpi 150                    # DPI for QC overlay images
 ```
+
+Masks are written zlib-compressed, which keeps a large 3D run from filling a disk.
+
+`--reuse-masks` loads `masks/{stem}_cellmask.tif` and `{stem}_nucmask.tif` from the output directory instead of running Cellpose, which makes re-quantification with different puncta or colocalization settings very fast. Puncta and nucleolar masks are still recomputed, so changing those parameters takes effect. Any image with no saved mask is skipped with a warning — and `--no-save-masks` leaves nothing to reuse.
 
 ## Configuration file
 
