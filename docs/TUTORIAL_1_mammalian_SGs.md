@@ -9,7 +9,7 @@
 
 ## The biology
 
-U2OS cells were treated with 500 μM sodium arsenite to induce stress granules — cytoplasmic condensates of RNA and RNA-binding proteins that form under stress. The images have three channels:
+HCT116 cells were treated with 500 μM sodium arsenite to induce stress granules — cytoplasmic condensates of RNA and RNA-binding proteins that form under stress. The images have three channels:
 
 1. **DAPI** — stains DNA (nuclei)
 2. **G3BP1** — stress granule marker (green)

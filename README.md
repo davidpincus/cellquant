@@ -8,9 +8,16 @@
 
 ## Quick start
 
+> **Never opened a terminal?** Start with the [installation guide](docs/INSTALL.md)
+> instead — it assumes no prior terminal experience and walks through every step for
+> Mac, Windows and Linux. Come back here once `cellquant.py --help` prints something.
+
 ```bash
 # 1. Set up the environment (pick one)
-conda env create -f environment.yml   # option A: conda (recommended)
+uv run cellquant.py --help            # option A: uv (recommended, installs on first run)
+
+# OR: conda
+conda env create -f environment.yml
 conda activate cellquant
 
 # OR: pip-only (no conda needed)
@@ -112,7 +119,7 @@ All preset values can be overridden: `--cell-type yeast --cell-diameter 50`
 
 | Tutorial | System | What you'll learn |
 |----------|--------|-------------------|
-| [Tutorial 1: Mammalian stress granules](docs/TUTORIAL_1_mammalian_SGs.md) | U2OS ± arsenite | Basics: install, run, interpret, statistics |
+| [Tutorial 1: Mammalian stress granules](docs/TUTORIAL_1_mammalian_SGs.md) | HCT116 ± arsenite | Basics: install, run, interpret, statistics |
 | [Tutorial 2: Yeast temperature series](docs/TUTORIAL_2_yeast_temp.md) | Yeast 25–40°C | Advanced: colocalization, proximity, morphology |
 | [Tutorial 3: Four-condition dose-response](docs/TUTORIAL_3_four_condition.md) | Arsenite at 4 concentrations — **your own data** | Multi-condition designs, positive/negative controls, Bonferroni-corrected pairwise tests |
 
@@ -129,7 +136,7 @@ Tutorials 1 and 2 run on data included in the repository. Tutorial 3 is a templa
 
 ## Example output
 
-### Mammalian stress granules (U2OS ± arsenite)
+### Mammalian stress granules (HCT116 ± arsenite)
 ![Mammalian SG figure](figures/fig2_mammalian_SGs.png)
 
 ### Yeast temperature series (25–40°C)

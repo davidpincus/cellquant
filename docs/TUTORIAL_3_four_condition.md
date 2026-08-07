@@ -8,7 +8,7 @@ This tutorial covers a multi-condition experiment with explicit positive and neg
 
 ## The experiment
 
-We're imaging U2OS cells expressing GFP-G3BP1 (stress granule marker) and stained with PABPC1 (cytoplasmic mRNA marker) and DAPI (nucleus). Cells are treated with sodium arsenite at four concentrations:
+We're imaging HCT116 cells expressing GFP-G3BP1 (stress granule marker) and stained with PABPC1 (cytoplasmic mRNA marker) and DAPI (nucleus). Cells are treated with sodium arsenite at four concentrations:
 
 | Condition | Arsenite (µM) | Role | Expected G3BP1 phenotype |
 |-----------|---------------|------|--------------------------|
