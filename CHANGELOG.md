@@ -5,6 +5,32 @@ All notable changes to cellquant are documented here. The format follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html) — where "breaking" means a change
 that could make the same images produce different numbers.
 
+## [1.1.1] — 2026-09-01
+
+Repository and release infrastructure. No change to any measurement — the pipeline produces
+identical output to 1.1.0.
+
+### Added
+
+- `--version`, so a bug report can name the version it came from.
+- Continuous integration: the suite runs on Linux and macOS across Python 3.11 and 3.12.
+- `CHANGELOG.md`, `CONTRIBUTING.md`, issue templates, and a pull-request template.
+- `tools/` — the Zenodo uploader that archives the raw image data, its dataset metadata,
+  and the release procedure for both deposits.
+- A data-availability section in `README.md`, and the Zenodo DOI for the raw images.
+
+### Changed
+
+- `CITATION.cff` gained `date-released`, `url`, `abstract` and `keywords`; `.zenodo.json`
+  gained `access_right`, `language`, and a cross-reference to the dataset record.
+- The regression suite's subprocess timeout is budgeted for a slow CI runner rather than a
+  developer laptop, and is overridable via `CELLQUANT_TEST_TIMEOUT`.
+
+### Fixed
+
+- The Zenodo uploader resolves the data root from the repository root rather than from its
+  own directory, which broke when it moved into `tools/`.
+
 ## [1.1.0] — 2026-09-01
 
 The release accompanying the manuscript. Adds a native 3D pipeline, user-defined
@@ -87,4 +113,5 @@ Notable work in this line: `--reuse-masks` to skip segmentation on re-runs,
 p-values on two-condition superplots, the `numpy<2.0` and `opencv-python-headless<4.10`
 pins with startup compatibility checks, and a fix for the macOS duplicate-libomp crash.
 
+[1.1.1]: https://github.com/davidpincus/cellquant/releases/tag/v1.1.1
 [1.1.0]: https://github.com/davidpincus/cellquant/releases/tag/v1.1.0

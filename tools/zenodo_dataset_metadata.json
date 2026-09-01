@@ -37,9 +37,9 @@
       "identifier": "https://github.com/davidpincus/cellquant",
       "relation": "isSupplementTo",
       "scheme": "url",
-      "_note": "Keep this, and ADD a second entry {identifier: <software DOI>, relation: isSupplementedBy, scheme: doi} once the GitHub-Zenodo archive of v1.1.0 mints one."
+      "_note": "Keep this, and ADD a second entry {identifier: <software DOI>, relation: isSupplementedBy, scheme: doi} once the GitHub-Zenodo archive of v1.1.1 mints one."
     }
   ],
 
-  "notes": "Analysis code: https://github.com/davidpincus/cellquant (v1.1.0). Add the manuscript DOI as a related identifier with relation isSupplementTo once the paper is published."
+  "notes": "Analysis code: https://github.com/davidpincus/cellquant (v1.1.1). Add the manuscript DOI as a related identifier with relation isSupplementTo once the paper is published."
 }

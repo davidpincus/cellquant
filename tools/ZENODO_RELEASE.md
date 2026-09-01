@@ -55,8 +55,9 @@ and why `/.zenodo.json` has so far had no effect.
 2. Find `davidpincus/cellquant` and flip the toggle **On**. Use "Sync now" if it is not
    listed — Zenodo only shows repositories you have admin rights to.
 3. Zenodo archives on *release publication*, and only for releases published after the
-   toggle was switched on. The existing `v1.1.0` release predates it, so re-trigger it:
-   delete and re-create the release from the `v1.1.0` tag, or publish a new release.
+   toggle was switched on. The existing `v1.1.0` release predates it, so it will never be
+   archived. Publish a **new** release (`v1.1.1`) rather than deleting and re-creating
+   `v1.1.0` — nothing is destroyed and no tag has to be moved.
 4. Check the resulting record against `/.zenodo.json` — type Software, MIT, the four
    creators, and both related identifiers.
 

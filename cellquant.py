@@ -77,7 +77,7 @@ from itertools import combinations
 from pathlib import Path
 from typing import Any
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 
 # Suppress duplicate-libomp crash on macOS (conda/pip can install conflicting
 # copies via MKL, PyTorch, and system llvm-openmp).  Must be set before any
