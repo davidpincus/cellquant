@@ -21,9 +21,10 @@ without minting a new DOI or disturbing the existing one.
 
 ## 1. Correct the metadata on record 21843280
 
-Edit at <https://zenodo.org/records/21843280/edit>, using
-[`zenodo_dataset_metadata.json`](zenodo_dataset_metadata.json) as the source. The fields
-that are wrong today:
+Edit at **<https://zenodo.org/uploads/21843280>** — that is the edit form for a published
+record, reached from the record page's "Edit" button. (`/records/<id>/edit` is not a Zenodo
+URL and returns 404.) Use [`zenodo_dataset_metadata.json`](zenodo_dataset_metadata.json) as
+the source. The fields that are wrong today:
 
 | Field | Currently | Should be |
 |---|---|---|
