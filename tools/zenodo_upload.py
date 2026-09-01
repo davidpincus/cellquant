@@ -144,7 +144,10 @@ def upload(bucket: str, path: Path, sess: requests.Session) -> tuple[str | None,
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--deposition", required=True)
-    ap.add_argument("--root", type=Path, default=Path(__file__).resolve().parent)
+    # This script lives in tools/, so the repo root -- where DATA_DIRS are
+    # resolved from -- is one level up.
+    ap.add_argument("--root", type=Path,
+                    default=Path(__file__).resolve().parent.parent)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--probe", action="store_true",
                     help="upload a tiny test file and print the full response")
