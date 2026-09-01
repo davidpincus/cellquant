@@ -832,6 +832,11 @@ def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(
         description="Configurable multi-channel cell quantification pipeline")
 
+    # Exits during parsing, before the --out required check, so `--version`
+    # works on its own. Bug reports ask for this, so keep it cheap to get.
+    ap.add_argument("--version", action="version",
+                    version=f"cellquant {__version__}")
+
     # Positional args (shorthand for --images and --channels)
     ap.add_argument("positional", nargs="*", default=[],
                     help="Optional: images_dir followed by channel specs")
