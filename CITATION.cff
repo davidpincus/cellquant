@@ -2,11 +2,19 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 title: "cellquant: a single-script pipeline for quantitative fluorescence microscopy"
 version: "1.1.1"
-date-released: "2026-09-01"
+date-released: "2026-09-02"
 license: MIT
 type: software
+doi: "10.5281/zenodo.22239479"
 repository-code: "https://github.com/davidpincus/cellquant"
 url: "https://github.com/davidpincus/cellquant"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.22239479"
+    description: "Archived snapshot of cellquant v1.1.1"
+  - type: doi
+    value: "10.5281/zenodo.21843280"
+    description: "Raw fluorescence microscopy z-stacks underlying the published figures"
 abstract: >-
   cellquant is a single-script command-line pipeline for quantitative multi-channel
   fluorescence microscopy. It performs cell and nuclear segmentation with Cellpose,

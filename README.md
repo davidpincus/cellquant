@@ -3,6 +3,7 @@
 **Quantitative fluorescence microscopy for biologists who don't code.**
 
 [![tests](https://github.com/davidpincus/cellquant/actions/workflows/tests.yml/badge.svg)](https://github.com/davidpincus/cellquant/actions/workflows/tests.yml)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22239479.svg)](https://doi.org/10.5281/zenodo.22239479)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![Python 3.11 | 3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/)
 
@@ -181,7 +182,18 @@ The whole point of this tool is that you can use an AI assistant to figure out t
 
 If you use `cellquant` in your research, please cite:
 
-> Neferkara A, Chaney Winner L, Ali A, Pincus D. Cellquant: a vibecoder's guide to image analysis. 2026. Submission and DOI pending.
+> Neferkara A, Chaney Winner L, Ali A, Pincus D. Cellquant: a vibecoder's guide to image
+> analysis. 2026. Software: [10.5281/zenodo.22239479](https://doi.org/10.5281/zenodo.22239479).
+> Manuscript submission pending.
+
+Please cite the **version** DOI above rather than the Zenodo "all versions" concept DOI —
+the code and the image data share a concept lineage, so the concept DOI does not
+distinguish them. The DOIs for each are:
+
+| | DOI |
+|---|---|
+| Software (v1.1.1) | [10.5281/zenodo.22239479](https://doi.org/10.5281/zenodo.22239479) |
+| Raw image data | [10.5281/zenodo.21843280](https://doi.org/10.5281/zenodo.21843280) |
 
 Machine-readable metadata is in [CITATION.cff](CITATION.cff) and [.zenodo.json](.zenodo.json).
 
@@ -192,7 +204,7 @@ test suite run on a fresh clone with nothing to download.
 
 The full raw image data underlying the published figures — 99 multi-channel z-stacks,
 about 52.9 GB — is archived on Zenodo at
-[10.5281/zenodo.21829810](https://doi.org/10.5281/zenodo.21829810):
+[10.5281/zenodo.21843280](https://doi.org/10.5281/zenodo.21843280):
 
 - **86 yeast z-stacks**, 6 h at 25, 30, 32, 36 and 40 °C, channels Tif6 / Nsr1 / Sis1
 - **6 HCT116 z-stacks** (3 control, 3 sodium arsenite) plus 7 maximum-intensity
