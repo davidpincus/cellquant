@@ -2,9 +2,28 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 title: "cellquant: a single-script pipeline for quantitative fluorescence microscopy"
 version: "1.1.0"
+date-released: "2026-09-01"
 license: MIT
-repository-code: "https://github.com/davidpincus/cellquant"
 type: software
+repository-code: "https://github.com/davidpincus/cellquant"
+url: "https://github.com/davidpincus/cellquant"
+abstract: >-
+  cellquant is a single-script command-line pipeline for quantitative multi-channel
+  fluorescence microscopy. It performs cell and nuclear segmentation with Cellpose,
+  puncta detection, per-cell intensity and condensation metrics, colocalization, and
+  nucleolar proximity and morphology analysis, in either two or three dimensions.
+  The interface is entirely text based, so the exact command used to generate any
+  result can be recorded and re-executed. It is designed for biologists who do not
+  write code and who drive the tool through an AI assistant.
+keywords:
+  - fluorescence microscopy
+  - image analysis
+  - cell segmentation
+  - Cellpose
+  - colocalization
+  - biomolecular condensates
+  - reproducibility
+  - Python
 authors:
   - family-names: "Neferkara"
     given-names: "Abani"

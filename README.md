@@ -2,6 +2,10 @@
 
 **Quantitative fluorescence microscopy for biologists who don't code.**
 
+[![tests](https://github.com/davidpincus/cellquant/actions/workflows/tests.yml/badge.svg)](https://github.com/davidpincus/cellquant/actions/workflows/tests.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+[![Python 3.11 | 3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/)
+
 <https://github.com/davidpincus/cellquant>
 
 `cellquant.py` is a single-script pipeline for segmenting cells, counting puncta, measuring colocalization, and computing spatial relationships in multi-channel fluorescence images — in **2D or natively in 3D**. You configure it entirely through command-line arguments — no Python editing required. Pair it with an AI assistant (Claude, ChatGPT, etc.) to translate your biology into the right command.
@@ -133,6 +137,8 @@ Tutorials 1 and 2 run on data included in the repository. Tutorial 3 is a templa
 - [Concepts](docs/CONCEPTS.md) — plain-language guide to what each measurement means and when it can mislead
 - [Troubleshooting](docs/TROUBLESHOOTING.md) — Apple Silicon, common errors, FAQ
 - [Philosophy](docs/PHILOSOPHY.md) — why we built it this way
+- [Changelog](CHANGELOG.md) — what changed in each release
+- [Contributing](CONTRIBUTING.md) — reporting problems and proposing changes
 
 ## Example output
 
@@ -149,6 +155,17 @@ Tutorials 1 and 2 run on data included in the repository. Tutorial 3 is a templa
 - scikit-image, numpy, pandas, matplotlib, scipy, PyYAML, tifffile
 
 See [environment.yml](environment.yml) or [requirements.txt](requirements.txt) for exact versions.
+
+## Tests
+
+```bash
+pytest
+```
+
+The suite runs the full pipeline on the cropped datasets in `example_data/` and checks that
+the expected output files and columns appear — about a minute. It deliberately does not
+assert exact numeric values, because Cellpose is not deterministic across platforms. CI runs
+the same suite on Linux and macOS across Python 3.11 and 3.12.
 
 ## How to ask an AI for help
 
@@ -167,6 +184,13 @@ If you use `cellquant` in your research, please cite:
 > Neferkara A, Chaney Winner L, Ali A, Pincus D. Cellquant: a vibecoder's guide to image analysis. 2026. Submission and DOI pending.
 
 Machine-readable metadata is in [CITATION.cff](CITATION.cff) and [.zenodo.json](.zenodo.json).
+
+## Contributing
+
+Bug reports, questions about analyzing your own data, and pull requests are all welcome —
+see [CONTRIBUTING.md](CONTRIBUTING.md). If cellquant refused to run with a message about
+voxel size or 2D colocalization, that is usually deliberate; check
+[TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) before filing a bug.
 
 ## License
 
