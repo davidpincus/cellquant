@@ -1,0 +1,81 @@
+name: Bug report
+description: cellquant crashed, refused to run, or gave a result you believe is wrong
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. The single most useful thing you can include is the
+        **exact command you ran** and the **full error message**, pasted as text.
+
+        If cellquant refused to run with a message about voxel size or 2D
+        colocalization, that is usually deliberate — please check
+        [TROUBLESHOOTING.md](../../blob/main/docs/TROUBLESHOOTING.md) first.
+
+  - type: textarea
+    id: command
+    attributes:
+      label: The command you ran
+      description: Copy and paste the whole thing, including the channel specs.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: What cellquant printed
+      description: The full output or traceback, pasted as text rather than a screenshot.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: data
+    attributes:
+      label: Your images
+      description: |
+        Number of channels, 2D projections or z-stacks, image dimensions, file format
+        (TIFF/OME-TIFF/ND2/CZI/LIF), and the organism or cell type.
+    validations:
+      required: true
+
+  - type: textarea
+    id: provenance
+    attributes:
+      label: provenance.json
+      description: |
+        If the run produced output, paste the contents of `provenance.json` from your
+        output directory. It records the resolved config and every package version.
+      render: json
+
+  - type: input
+    id: version
+    attributes:
+      label: cellquant version
+      description: "Output of: python cellquant.py --version"
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: Operating system
+      placeholder: "macOS 14 (Apple Silicon) / Windows 11 / Ubuntu 22.04"
+    validations:
+      required: true
+
+  - type: input
+    id: install
+    attributes:
+      label: How you installed
+      placeholder: "uv / conda (environment.yml) / pip (requirements.txt)"
+    validations:
+      required: true

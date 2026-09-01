@@ -1,0 +1,37 @@
+name: Question about analyzing my data
+description: You are not sure which flags to use, or how to interpret a measurement
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        cellquant is designed to be driven with an AI assistant, and that is usually the
+        fastest way to get to the right command — describe your images to Claude or ChatGPT
+        along with the [CLI reference](../../blob/main/docs/CLI_REFERENCE.md) and ask it to
+        write the command. Open an issue here when that does not get you there, or when you
+        think the answer should be documented for everyone.
+
+  - type: textarea
+    id: experiment
+    attributes:
+      label: What you are trying to measure
+      description: The biology, in your own words. What is the comparison, and what would a result look like?
+    validations:
+      required: true
+
+  - type: textarea
+    id: data
+    attributes:
+      label: Your images
+      description: |
+        Channels and what is in each one, 2D projections or z-stacks, organism or cell type,
+        conditions and replicates, file format.
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you have tried so far
+      description: Any command you already ran, and what happened.
+      render: shell
