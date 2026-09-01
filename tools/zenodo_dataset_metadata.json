@@ -1,0 +1,45 @@
+{
+  "_comment": "Metadata for the DATA deposit (Zenodo 21843280) — the raw z-stacks, not the code. The code is archived separately via the GitHub-Zenodo integration, which reads /.zenodo.json instead. Apply this in the Zenodo browser UI: draft -> Edit -> fill the matching fields. See ZENODO_RELEASE.md. Zenodo ignores unknown keys, but the leading-underscore keys here are notes for humans and should not be pasted into the API.",
+
+  "title": "Raw fluorescence microscopy z-stacks for \"Cellquant: a vibecoder's guide to image analysis\"",
+  "upload_type": "dataset",
+  "access_right": "open",
+  "license": "cc-by-4.0",
+  "language": "eng",
+  "version": "1.0.0",
+
+  "description": "<p>Raw, unprocessed multi-channel fluorescence microscopy image data underlying the figures and tables of <em>Cellquant: a vibecoder's guide to image analysis</em>. These are the source images for the analyses reproduced by the <code>cellquant</code> pipeline; no segmentation, projection, or quantification has been applied.</p><p><strong>99 files, ~52.9 GB, in two datasets:</strong></p><ul><li><strong><code>Tif6_Nsr1_Sis1_6hr/z-stacks/</code> — 86 three-channel yeast z-stacks.</strong> <em>Saccharomyces cerevisiae</em> after 6 h at one of five temperatures: 25 &deg;C (16 fields), 30 &deg;C (12), 32 &deg;C (19), 36 &deg;C (16) and 40 &deg;C (23). Channels are Tif6, Nsr1 (nucleolar marker) and Sis1. These support the yeast temperature series, the colocalization and nucleolar-proximity analyses, and the dimensionality-reduction figures.</li><li><strong><code>SG_zstacks/</code> — 6 three-channel HCT116 z-stacks</strong> (3 control, 3 sodium arsenite), plus <code>SG_zstacks/MIPs/</code> containing 7 maximum-intensity projections (4 arsenite, 3 control). Channels are DAPI, G3BP1 and PABPC1. These support the mammalian stress-granule analyses.</li></ul><p>Files are TIFF. Voxel size is carried in the image metadata and is read directly by the analysis pipeline; in three dimensions cellquant refuses to run without it rather than assume isotropic 1 &micro;m voxels.</p><p><strong>Reproducing the analysis.</strong> The analysis code is a single Python script, <code>cellquant.py</code>, archived separately and developed at <a href=\"https://github.com/davidpincus/cellquant\">github.com/davidpincus/cellquant</a>. Cropped example subsets ship inside that repository, so the tutorials can be run without downloading this 52.9 GB archive; download this deposit only to reproduce the published figures from the original data. The <code>validation_3d/</code> directory of the repository contains the harness that regenerates the manuscript figures and tables from these images.</p>",
+
+  "creators": [
+    { "name": "Neferkara, Abani", "affiliation": "The University of Chicago" },
+    { "name": "Chaney Winner, Leah", "affiliation": "The University of Chicago" },
+    { "name": "Ali, Asif", "affiliation": "Indian Institute of Science Education and Research, Pune" },
+    { "name": "Pincus, David", "affiliation": "The University of Chicago" }
+  ],
+
+  "keywords": [
+    "fluorescence microscopy",
+    "z-stack",
+    "raw image data",
+    "Saccharomyces cerevisiae",
+    "HCT116",
+    "stress granules",
+    "nucleolus",
+    "biomolecular condensates",
+    "heat shock",
+    "sodium arsenite",
+    "colocalization",
+    "image analysis"
+  ],
+
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/davidpincus/cellquant",
+      "relation": "isSupplementTo",
+      "scheme": "url",
+      "_note": "Replace with the software DOI (10.5281/zenodo.XXXXXXX) once the GitHub-Zenodo archive of v1.1.0 has minted one, and change the relation to isSupplementedBy."
+    }
+  ],
+
+  "notes": "Analysis code: https://github.com/davidpincus/cellquant (v1.1.0). Add the manuscript DOI as a related identifier with relation isSupplementTo once the paper is published."
+}

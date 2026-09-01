@@ -3,6 +3,15 @@
 Scripts used to prepare a release. Not part of the analysis pipeline — nothing in `docs/`
 or the tutorials depends on them, and users never need to run them.
 
+**Start with [ZENODO_RELEASE.md](ZENODO_RELEASE.md)** — it covers both deposits, the order
+they have to be done in, and what to update once the DOIs exist.
+
+## `zenodo_dataset_metadata.json`
+
+Metadata for the raw-image **data** deposit, applied by hand in the Zenodo edit form. The
+**software** deposit is described by `/.zenodo.json` instead, which the GitHub–Zenodo
+integration reads automatically — the two are separate records with separate DOIs.
+
 ## `zenodo_upload.py`
 
 Resumable, checksum-verified uploader for a Zenodo draft deposit, used to archive the

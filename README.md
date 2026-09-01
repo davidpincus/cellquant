@@ -185,6 +185,22 @@ If you use `cellquant` in your research, please cite:
 
 Machine-readable metadata is in [CITATION.cff](CITATION.cff) and [.zenodo.json](.zenodo.json).
 
+## Data availability
+
+The cropped datasets in `example_data/` ship with the repository, so the tutorials and the
+test suite run on a fresh clone with nothing to download.
+
+The full raw image data underlying the published figures — 99 multi-channel z-stacks,
+about 52.9 GB — is archived separately on Zenodo (deposit `21843280`, DOI pending
+publication):
+
+- **86 yeast z-stacks**, 6 h at 25, 30, 32, 36 and 40 °C, channels Tif6 / Nsr1 / Sis1
+- **6 HCT116 z-stacks** (3 control, 3 sodium arsenite) plus 7 maximum-intensity
+  projections, channels DAPI / G3BP1 / PABPC1
+
+You only need it to regenerate the published figures from original data; the harness that
+does so is in [`validation_3d/`](validation_3d/).
+
 ## Contributing
 
 Bug reports, questions about analyzing your own data, and pull requests are all welcome —
