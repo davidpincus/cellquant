@@ -1,5 +1,5 @@
 {
-  "_comment": "Metadata for the DATA deposit (Zenodo 21843280) — the raw z-stacks, not the code. The code is archived separately via the GitHub-Zenodo integration, which reads /.zenodo.json instead. Apply this in the Zenodo browser UI: draft -> Edit -> fill the matching fields. See ZENODO_RELEASE.md. Zenodo ignores unknown keys, but the leading-underscore keys here are notes for humans and should not be pasted into the API.",
+  "_comment": "Corrected metadata for the DATA record (Zenodo 21843280), which is ALREADY PUBLISHED and currently mistyped as Software with an MIT licence and a description of the pipeline — none of which matches its contents (99 raw TIFFs, no code). Files on a published record are frozen, but metadata is still editable: apply this at https://zenodo.org/records/21843280/edit without minting a new DOI. The code is archived separately via the GitHub-Zenodo integration, which reads /.zenodo.json instead. See ZENODO_RELEASE.md. The leading-underscore keys are notes for humans and should not be pasted into the API.",
 
   "title": "Raw fluorescence microscopy z-stacks for \"Cellquant: a vibecoder's guide to image analysis\"",
   "upload_type": "dataset",
@@ -37,7 +37,7 @@
       "identifier": "https://github.com/davidpincus/cellquant",
       "relation": "isSupplementTo",
       "scheme": "url",
-      "_note": "Replace with the software DOI (10.5281/zenodo.XXXXXXX) once the GitHub-Zenodo archive of v1.1.0 has minted one, and change the relation to isSupplementedBy."
+      "_note": "Keep this, and ADD a second entry {identifier: <software DOI>, relation: isSupplementedBy, scheme: doi} once the GitHub-Zenodo archive of v1.1.0 mints one."
     }
   ],
 

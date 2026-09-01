@@ -1,74 +1,83 @@
-# Archiving a release to Zenodo
+# Archiving to Zenodo
 
-Two separate deposits, and therefore two DOIs:
+## Current state
 
-| | What | Metadata comes from | How it is created |
+| | Record | DOI | Status |
 |---|---|---|---|
-| **Data** | The raw z-stacks (99 files, ~52.9 GB) | `tools/zenodo_dataset_metadata.json`, applied by hand | `tools/zenodo_upload.py`, then published in the browser |
-| **Software** | A snapshot of this repository | `/.zenodo.json`, applied automatically | The GitHub–Zenodo integration, fired by publishing a GitHub release |
+| **Data** — 99 raw z-stacks, 52.94 GB | [21843280](https://zenodo.org/records/21843280) | `10.5281/zenodo.21843280` (version)<br>`10.5281/zenodo.21829810` (concept) | **Published** 2026-08-07, version 3 of 3 |
+| **Software** — a snapshot of this repository | none | none | **Does not exist yet** |
 
-**Do these in order.** `/.zenodo.json` already lists the data DOI
-`10.5281/zenodo.21843280` as a related identifier, so publishing the data deposit first
-means the software archive points at a DOI that resolves the moment it is minted.
+**The published record is mistyped.** Record 21843280 contains only raw image data — 99
+TIFFs, verified byte-for-byte complete against the local directories — but its metadata
+describes the *software*: resource type `Software`, title "cellquant: a single-script
+pipeline for quantitative fluorescence microscopy", MIT license, and a description of a
+pipeline that is not among its files. The code has never been archived at all.
+
+Files on a published Zenodo record are frozen permanently. **Metadata is not** — the type,
+title, description, license and related identifiers can all still be corrected in place,
+without minting a new DOI or disturbing the existing one.
 
 ---
 
-## 1. The data deposit (Zenodo 21843280)
+## 1. Correct the metadata on record 21843280
 
-The files are already uploaded — the last run stored 89 files with 0 failures. What remains
-is metadata and the decision to publish.
+Edit at <https://zenodo.org/records/21843280/edit>, using
+[`zenodo_dataset_metadata.json`](zenodo_dataset_metadata.json) as the source. The fields
+that are wrong today:
 
-1. Open the draft: <https://zenodo.org/uploads/21843280>
-2. Open `tools/zenodo_dataset_metadata.json` and copy each field into the matching box in
-   the Zenodo edit form: title, upload type (Dataset), license (CC-BY-4.0), description,
-   creators, keywords, related identifiers, notes. The `_comment` and `_note` keys are
-   guidance for you and are not part of the metadata — do not paste them.
-3. Confirm the file list is complete before publishing:
-   ```bash
-   export ZENODO_TOKEN=...
-   python tools/zenodo_upload.py --deposition 21843280 --dry-run
-   ```
-   It prints what is stored versus what is local. Anything listed as needing upload means
-   the archive is incomplete; re-run without `--dry-run` to finish.
-4. **Publish in the browser.** The uploader deliberately cannot publish — minting a DOI is
-   irreversible, and a published Zenodo record's files can never be changed.
+| Field | Currently | Should be |
+|---|---|---|
+| Resource type | Software | **Dataset** |
+| Title | "cellquant: a single-script pipeline…" | The dataset title in the JSON |
+| Description | Describes the pipeline | Describes the images |
+| License | MIT | **CC-BY-4.0** — MIT is a software licence and does not fit image data |
+| Keywords | Software keywords | The dataset keywords in the JSON |
+| Related identifiers | GitHub URL only | Add the software DOI once step 2 mints it |
 
-Once published, note the DOI. It should be `10.5281/zenodo.21843280`.
+Do **not** re-upload anything. The file list is already correct and complete: 86 yeast
+z-stacks (16/12/19/16/23 at 25/30/32/36/40 °C), 6 HCT116 z-stacks, and 7 MIPs.
 
-## 2. The software deposit
+Verify at any time with:
 
-The GitHub–Zenodo integration has **not** been enabled for this repository yet, so no code
-archive exists. Until it is switched on, `/.zenodo.json` has no effect.
+```bash
+export ZENODO_TOKEN=...
+python tools/zenodo_upload.py --deposition 21843280 --dry-run
+```
+
+## 2. Archive the software
+
+The GitHub–Zenodo integration has never been enabled, which is why no code archive exists
+and why `/.zenodo.json` has so far had no effect.
 
 1. Sign in at <https://zenodo.org/account/settings/github/> with the GitHub account that
    owns the repository.
-2. Find `davidpincus/cellquant` in the list and flip the toggle **On**. If it is missing,
-   use "Sync now" — Zenodo only lists repositories you have admin rights to.
+2. Find `davidpincus/cellquant` and flip the toggle **On**. Use "Sync now" if it is not
+   listed — Zenodo only shows repositories you have admin rights to.
 3. Zenodo archives on *release publication*, and only for releases published after the
    toggle was switched on. The existing `v1.1.0` release predates it, so re-trigger it:
-   either delete and re-create the release from the same tag, or publish a new release.
-4. Check that the resulting record matches `/.zenodo.json` — title, description, the four
-   creators, MIT license, and both related identifiers.
+   delete and re-create the release from the `v1.1.0` tag, or publish a new release.
+4. Check the resulting record against `/.zenodo.json` — type Software, MIT, the four
+   creators, and both related identifiers.
+
+`/.zenodo.json` already points at the data via the **concept** DOI
+`10.5281/zenodo.21829810`, which always resolves to the newest version, so that link stays
+correct as the dataset gains versions.
 
 ## 3. Close the loop
 
-After both DOIs exist:
-
-- [ ] Add the software DOI to the data deposit's related identifiers
-      (`isSupplementedBy` → the software DOI), replacing the placeholder GitHub URL.
-      Zenodo allows metadata edits on a published record; only files are frozen.
+- [ ] Add the software DOI to record 21843280's related identifiers
+      (relation `isSupplementedBy`).
 - [ ] Add the DOI badge to `README.md` and the `doi:` field to `CITATION.cff`.
-- [ ] Update the citation line in `README.md`, which currently reads
-      "Submission and DOI pending."
-- [ ] Update the "Data availability" section of `README.md` with the real DOI link.
-- [ ] Once the paper is published, add its DOI to both deposits as a related identifier
-      with relation `isSupplementTo`.
+- [ ] Replace "Submission and DOI pending" in the `README.md` citation block.
+- [ ] Put the real DOI in the README "Data availability" section.
+- [ ] Once the paper is out, add its DOI to both records with relation `isSupplementTo`.
 
 ## Notes
 
-- The `ZENODO_TOKEN` needs the `deposit:write` and `deposit:actions` scopes. Keep it in the
-  environment; never pass it on a command line or commit it.
-- A published record's **files are immutable**. Verify the file list before publishing, not
-  after.
-- Zenodo issues both a version DOI and a concept DOI that always resolves to the newest
-  version. Cite the concept DOI in the manuscript so the reference does not go stale.
+- Cite **concept** DOIs in the manuscript, not version DOIs — they resolve to the latest
+  version and will not go stale.
+- Versions 1 and 2 of the dataset record keep their own metadata; correcting version 3 does
+  not rewrite them. The concept DOI resolves to version 3, so this is usually not worth
+  chasing.
+- `ZENODO_TOKEN` needs the `deposit:write` and `deposit:actions` scopes. Keep it in the
+  environment; never on a command line, never committed.

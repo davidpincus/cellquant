@@ -191,8 +191,8 @@ The cropped datasets in `example_data/` ship with the repository, so the tutoria
 test suite run on a fresh clone with nothing to download.
 
 The full raw image data underlying the published figures — 99 multi-channel z-stacks,
-about 52.9 GB — is archived separately on Zenodo (deposit `21843280`, DOI pending
-publication):
+about 52.9 GB — is archived on Zenodo at
+[10.5281/zenodo.21829810](https://doi.org/10.5281/zenodo.21829810):
 
 - **86 yeast z-stacks**, 6 h at 25, 30, 32, 36 and 40 °C, channels Tif6 / Nsr1 / Sis1
 - **6 HCT116 z-stacks** (3 control, 3 sodium arsenite) plus 7 maximum-intensity
