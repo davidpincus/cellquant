@@ -6,6 +6,7 @@ of rows. Does NOT check exact values (Cellpose is non-deterministic
 across platforms).
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -19,12 +20,19 @@ CELLQUANT = ROOT / "cellquant.py"
 MAMMALIAN_DIR = ROOT / "example_data" / "mammalian_SGs"
 YEAST_DIR = ROOT / "example_data" / "yeast_temperature"
 
+# This timeout exists to stop a hung run from wedging the suite forever, not to
+# assert anything about speed. Budget it for the slowest machine we expect to
+# see, not a developer laptop: the whole suite takes ~40 s on Apple Silicon but
+# Cellpose on a shared CPU CI runner is more than an order of magnitude slower,
+# and a 600 s ceiling failed the mammalian run there intermittently.
+TIMEOUT = int(os.environ.get("CELLQUANT_TEST_TIMEOUT", "1800"))
+
 
 def _run(args: list[str], tmp_path: Path) -> Path:
     """Run cellquant.py and return the output directory."""
     out = tmp_path / "output"
     cmd = [sys.executable, str(CELLQUANT)] + args + ["--out", str(out)]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT)
     assert result.returncode == 0, (
         f"cellquant.py failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
     )
